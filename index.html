@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Secure Send</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e1e4e8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      text-align: center;
+      padding: 2rem 1rem 1rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #f0f0f0;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: #8b949e;
+      margin-top: 0.25rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin: 1rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #30363d;
+    }
+
+    .tab-btn {
+      padding: 0.6rem 2rem;
+      background: #161b22;
+      color: #8b949e;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: #238636;
+      color: #fff;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: #1c2129;
+      color: #c9d1d9;
+    }
+
+    .panel {
+      display: none;
+      width: 100%;
+      max-width: 480px;
+      padding: 0 1rem 2rem;
+    }
+
+    .panel.active { display: block; }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-bottom: 0.4rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      padding: 0.65rem 0.8rem;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e1e4e8;
+      font-size: 0.95rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #238636;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    button.primary {
+      width: 100%;
+      padding: 0.7rem;
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button.primary:hover { background: #2ea043; }
+    button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    button.secondary {
+      width: 100%;
+      padding: 0.7rem;
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button.secondary:hover { background: #30363d; }
+
+    #qr-output {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    #qr-output canvas {
+      border-radius: 8px;
+      max-width: 100%;
+    }
+
+    #scanner-region {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #scanner-region video { border-radius: 8px; }
+
+    .result-box {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #0d1117;
+      border: 1px solid #238636;
+      border-radius: 8px;
+      word-break: break-all;
+    }
+
+    .result-box .label {
+      font-size: 0.75rem;
+      color: #238636;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.4rem;
+    }
+
+    .result-box .value {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.95rem;
+      color: #f0f0f0;
+      user-select: all;
+    }
+
+    .copy-btn {
+      margin-top: 0.6rem;
+      padding: 0.4rem 0.8rem;
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover { background: #30363d; }
+
+    .error {
+      color: #f85149;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+
+    .info {
+      color: #8b949e;
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    .toggle-vis {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #8b949e;
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 0.2rem 0.4rem;
+    }
+
+    .input-wrap {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .input-wrap input { margin-bottom: 0; padding-right: 3.5rem; }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .btn-row button { flex: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>QR Secure Send</h1>
+    <p>Encrypt and transfer secrets via QR code</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="send">Send</button>
+    <button class="tab-btn" data-tab="receive">Receive</button>
+  </div>
+
+  <!-- SEND PANEL -->
+  <div id="send" class="panel active">
+    <div class="card">
+      <label for="secret">Secret / Password</label>
+      <div class="input-wrap">
+        <input type="password" id="secret" placeholder="Enter your secret..." autocomplete="off">
+        <button class="toggle-vis" data-target="secret">show</button>
+      </div>
+
+      <label for="send-passphrase">Encryption Passphrase</label>
+      <div class="input-wrap">
+        <input type="password" id="send-passphrase" placeholder="Shared passphrase..." autocomplete="off">
+        <button class="toggle-vis" data-target="send-passphrase">show</button>
+      </div>
+
+      <button class="primary" id="generate-btn">Generate QR Code</button>
+      <div id="send-error" class="error"></div>
+    </div>
+
+    <div id="qr-output"></div>
+    <p id="qr-info" class="info" style="display:none">
+      Show this QR code to the receiving device's camera.
+    </p>
+  </div>
+
+  <!-- RECEIVE PANEL -->
+  <div id="receive" class="panel">
+    <div class="card">
+      <label for="recv-passphrase">Decryption Passphrase</label>
+      <div class="input-wrap">
+        <input type="password" id="recv-passphrase" placeholder="Same passphrase used to encrypt..." autocomplete="off">
+        <button class="toggle-vis" data-target="recv-passphrase">show</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="scan-btn">Start Camera</button>
+        <button class="secondary" id="stop-btn" style="display:none">Stop</button>
+      </div>
+      <div id="recv-error" class="error"></div>
+    </div>
+
+    <div id="scanner-region"></div>
+
+    <div id="recv-result" class="result-box">
+      <div class="label">Decrypted Secret</div>
+      <div class="value" id="recv-value"></div>
+      <button class="copy-btn" id="copy-btn">Copy to clipboard</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Crypto helpers using Web Crypto API (AES-256-GCM + PBKDF2) ---
+
+    async function deriveKey(passphrase, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]
+      );
+      return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function encryptSecret(secret, passphrase) {
+      const enc = new TextEncoder();
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveKey(passphrase, salt);
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        enc.encode(secret)
+      );
+      // Pack: salt (16) + iv (12) + ciphertext, then base64
+      const packed = new Uint8Array(salt.length + iv.length + new Uint8Array(ciphertext).length);
+      packed.set(salt, 0);
+      packed.set(iv, salt.length);
+      packed.set(new Uint8Array(ciphertext), salt.length + iv.length);
+      return btoa(String.fromCharCode(...packed));
+    }
+
+    async function decryptSecret(encoded, passphrase) {
+      const raw = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+      const salt = raw.slice(0, 16);
+      const iv = raw.slice(16, 28);
+      const ciphertext = raw.slice(28);
+      const key = await deriveKey(passphrase, salt);
+      const dec = new TextDecoder();
+      const plaintext = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        ciphertext
+      );
+      return dec.decode(plaintext);
+    }
+
+    // --- Tab switching ---
+
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const panels = document.querySelectorAll(".panel");
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabBtns.forEach(b => b.classList.remove("active"));
+        panels.forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+        // Stop scanner when switching away
+        if (btn.dataset.tab !== "receive" && scanner) {
+          stopScanner();
+        }
+      });
+    });
+
+    // --- Show/hide toggle ---
+
+    document.querySelectorAll(".toggle-vis").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (input.type === "password") {
+          input.type = "text";
+          btn.textContent = "hide";
+        } else {
+          input.type = "password";
+          btn.textContent = "show";
+        }
+      });
+    });
+
+    // --- QR Generation ---
+
+    document.getElementById("generate-btn").addEventListener("click", async () => {
+      const secret = document.getElementById("secret").value.trim();
+      const passphrase = document.getElementById("send-passphrase").value;
+      const errEl = document.getElementById("send-error");
+      const output = document.getElementById("qr-output");
+      const info = document.getElementById("qr-info");
+
+      errEl.textContent = "";
+      output.innerHTML = "";
+      info.style.display = "none";
+
+      if (!secret) { errEl.textContent = "Please enter a secret."; return; }
+      if (!passphrase) { errEl.textContent = "Please enter a passphrase."; return; }
+
+      try {
+        const encrypted = await encryptSecret(secret, passphrase);
+        const payload = "QRSEC:" + encrypted;
+
+        if (payload.length > 2953) {
+          errEl.textContent = "Secret is too long for a single QR code. Keep it under ~2000 characters.";
+          return;
+        }
+
+        await QRCode.toCanvas(output, payload, {
+          width: 320,
+          margin: 2,
+          color: { dark: "#000000", light: "#ffffff" },
+          errorCorrectionLevel: "M"
+        });
+
+        // Move the canvas out of any extra wrapper
+        const canvas = output.querySelector("canvas");
+        if (canvas) {
+          output.innerHTML = "";
+          output.appendChild(canvas);
+        }
+
+        info.style.display = "block";
+      } catch (e) {
+        errEl.textContent = "Failed to generate QR code: " + e.message;
+      }
+    });
+
+    // --- QR Scanner ---
+
+    let scanner = null;
+
+    async function startScanner() {
+      const passphrase = document.getElementById("recv-passphrase").value;
+      const errEl = document.getElementById("recv-error");
+      const resultBox = document.getElementById("recv-result");
+
+      errEl.textContent = "";
+      resultBox.style.display = "none";
+
+      if (!passphrase) {
+        errEl.textContent = "Enter the decryption passphrase first.";
+        return;
+      }
+
+      document.getElementById("scan-btn").style.display = "none";
+      document.getElementById("stop-btn").style.display = "block";
+
+      scanner = new Html5Qrcode("scanner-region");
+
+      try {
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          async (decodedText) => {
+            if (!decodedText.startsWith("QRSEC:")) {
+              errEl.textContent = "Not a QR Secure Send code.";
+              return;
+            }
+
+            try {
+              const encrypted = decodedText.slice(6);
+              const secret = await decryptSecret(encrypted, passphrase);
+
+              document.getElementById("recv-value").textContent = secret;
+              resultBox.style.display = "block";
+              errEl.textContent = "";
+              stopScanner();
+            } catch (e) {
+              errEl.textContent = "Decryption failed. Wrong passphrase?";
+            }
+          },
+          () => {} // ignore scan failures (no QR in frame)
+        );
+      } catch (e) {
+        errEl.textContent = "Camera error: " + e.message;
+        document.getElementById("scan-btn").style.display = "block";
+        document.getElementById("stop-btn").style.display = "none";
+        scanner = null;
+      }
+    }
+
+    async function stopScanner() {
+      if (scanner) {
+        try { await scanner.stop(); } catch (_) {}
+        scanner = null;
+      }
+      document.getElementById("scanner-region").innerHTML = "";
+      document.getElementById("scan-btn").style.display = "block";
+      document.getElementById("stop-btn").style.display = "none";
+    }
+
+    document.getElementById("scan-btn").addEventListener("click", startScanner);
+    document.getElementById("stop-btn").addEventListener("click", stopScanner);
+
+    // --- Copy to clipboard ---
+
+    document.getElementById("copy-btn").addEventListener("click", async () => {
+      const value = document.getElementById("recv-value").textContent;
+      try {
+        await navigator.clipboard.writeText(value);
+        document.getElementById("copy-btn").textContent = "Copied!";
+        setTimeout(() => {
+          document.getElementById("copy-btn").textContent = "Copy to clipboard";
+        }, 2000);
+      } catch (_) {
+        // Fallback
+        const ta = document.createElement("textarea");
+        ta.value = value;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        document.getElementById("copy-btn").textContent = "Copied!";
+        setTimeout(() => {
+          document.getElementById("copy-btn").textContent = "Copy to clipboard";
+        }, 2000);
+      }
+    });
+  </script>
+</body>
+</html>
