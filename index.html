@@ -124,7 +124,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.4.0</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.4.1</p>
   </header>
 
   <div class="tabs">
@@ -357,7 +357,7 @@
     // -- QR matrix construction --
 
     const ALIGNMENT_POSITIONS = [
-      null,[],[], [6,22],[6,26],[6,30],[6,34],
+      null,[],[6,18], [6,22],[6,26],[6,30],[6,34],
       [6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],
       [6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],
       [6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],
@@ -622,15 +622,15 @@
       ];
       for (let i = 0; i < 15; i++) {
         const [r, c] = positions1[i];
-        matrix[r][c] = ((bits >> (14 - i)) & 1) ? 1 : 2;
+        matrix[r][c] = ((bits >> i) & 1) ? 1 : 2;
       }
 
-      // Bottom-left and top-right
+      // Bottom-left and top-right (opposite bit order from first copy)
       for (let i = 0; i < 7; i++) {
-        matrix[size - 1 - i][8] = ((bits >> i) & 1) ? 1 : 2;
+        matrix[size - 1 - i][8] = ((bits >> (14 - i)) & 1) ? 1 : 2;
       }
       for (let i = 7; i < 15; i++) {
-        matrix[8][size - 15 + i] = ((bits >> i) & 1) ? 1 : 2;
+        matrix[8][size - 15 + i] = ((bits >> (14 - i)) & 1) ? 1 : 2;
       }
     }
 
