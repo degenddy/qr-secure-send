@@ -715,13 +715,15 @@
 
     function toCanvas(container, text, options = {}) {
       const { matrix, size } = encode(text);
-      const scale = Math.max(2, Math.floor((options.width || 320) / size));
+      const scale = Math.max(4, Math.floor((options.width || 500) / size));
       const margin = (options.margin !== undefined ? options.margin : 2) * scale;
 
       const canvas = document.createElement("canvas");
       const total = size * scale + margin * 2;
       canvas.width = total;
       canvas.height = total;
+      canvas.style.maxWidth = "100%";
+      canvas.style.height = "auto";
       const ctx = canvas.getContext("2d");
 
       ctx.fillStyle = "#ffffff";
@@ -742,25 +744,47 @@
 
 
   // =========================================================================
-  // QR CODE SCANNER — Uses native BarcodeDetector API (Chrome, Edge, Safari)
-  // Falls back to manual paste for unsupported browsers (Firefox).
-  // No external libraries required.
+  // QR CODE SCANNER — Uses native BarcodeDetector API where available,
+  // falls back to jsQR library (loaded from CDN) for other browsers.
   // =========================================================================
 
   const QRScan = (() => {
     let stream = null;
     let animId = null;
     let running = false;
+    let jsQRPromise = null;
 
-    const isSupported = "BarcodeDetector" in window;
+    const hasBarcodeDetector = "BarcodeDetector" in window;
+
+    function loadJsQR() {
+      if (jsQRPromise) return jsQRPromise;
+      jsQRPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+        script.onload = () => resolve(window.jsQR);
+        script.onerror = () => reject(new Error("Failed to load QR scanner library"));
+        document.head.appendChild(script);
+      });
+      return jsQRPromise;
+    }
+
+    // Always report supported — we have a fallback
+    const isSupported = true;
 
     async function start(regionEl, onResult, onError) {
-      if (!isSupported) {
-        onError("BarcodeDetector is not supported in this browser. Use Chrome, Edge, or Safari.");
-        return false;
-      }
+      let detector = null;
+      let jsQRFn = null;
 
-      const detector = new BarcodeDetector({ formats: ["qr_code"] });
+      if (hasBarcodeDetector) {
+        detector = new BarcodeDetector({ formats: ["qr_code"] });
+      } else {
+        try {
+          jsQRFn = await loadJsQR();
+        } catch (e) {
+          onError("Failed to load QR scanner. Check your internet connection.");
+          return false;
+        }
+      }
 
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -783,14 +807,35 @@
 
       running = true;
 
+      // Reusable canvas for jsQR frame capture
+      let scanCanvas = null;
+      let scanCtx = null;
+
       const scan = async () => {
         if (!running) return;
         try {
-          const codes = await detector.detect(video);
-          if (codes.length > 0) {
-            // onResult returns true if scan should stop (successful decode)
-            const shouldStop = await onResult(codes[0].rawValue);
-            if (shouldStop) return;
+          if (detector) {
+            const codes = await detector.detect(video);
+            if (codes.length > 0) {
+              const shouldStop = await onResult(codes[0].rawValue);
+              if (shouldStop) return;
+            }
+          } else if (jsQRFn) {
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              if (!scanCanvas) {
+                scanCanvas = document.createElement("canvas");
+                scanCanvas.width = video.videoWidth;
+                scanCanvas.height = video.videoHeight;
+                scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+              }
+              scanCtx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+              const imageData = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+              const code = jsQRFn(imageData.data, imageData.width, imageData.height);
+              if (code) {
+                const shouldStop = await onResult(code.data);
+                if (shouldStop) return;
+              }
+            }
           }
         } catch (_) {}
         animId = requestAnimationFrame(scan);
@@ -912,19 +957,19 @@
         return;
       }
 
-      QRGen.toCanvas(output, payload, { width: 320, margin: 2 });
+      QRGen.toCanvas(output, payload, { width: 500, margin: 2 });
       info.style.display = "block";
     } catch (e) {
       errEl.textContent = "Failed to generate QR code: " + e.message;
     }
   });
 
-  // Browser compatibility warning
-  if (!QRScan.isSupported) {
+  // Browser compatibility note
+  if (!("BarcodeDetector" in window)) {
     document.getElementById("compat-warning").style.display = "block";
     document.getElementById("compat-warning").textContent =
-      "Your browser does not support QR scanning (BarcodeDetector API). " +
-      "Use Chrome, Edge, or Safari for camera scanning.";
+      "Your browser lacks native QR scanning. A fallback library will be " +
+      "loaded from the internet when you start the camera.";
   }
 
   // QR Scanning
