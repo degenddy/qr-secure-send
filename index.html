@@ -124,7 +124,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.4.1</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.5.0</p>
   </header>
 
   <div class="tabs">
@@ -169,7 +169,9 @@
       <div class="btn-row">
         <button class="primary" id="scan-btn">Start Camera</button>
         <button class="secondary" id="stop-btn" style="display:none">Stop</button>
+        <button class="primary" id="decrypt-btn" style="display:none">Decrypt</button>
       </div>
+      <div id="link-notice" class="info" style="display:none">Encrypted data received via link. Enter the passphrase and click Decrypt.</div>
       <div id="recv-error" class="error"></div>
       <div id="compat-warning" class="warning" style="display:none"></div>
     </div>
@@ -907,6 +909,22 @@
 
 
   // =========================================================================
+  // PAYLOAD HELPERS
+  // =========================================================================
+
+  const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/";
+
+  // Extract the base64 encrypted data from either raw "QRSEC:..." or a URL with "#QRSEC:..."
+  function extractPayload(text) {
+    if (text.startsWith("QRSEC:")) return text.slice(6);
+    try {
+      const hash = new URL(text).hash;
+      if (hash.startsWith("#QRSEC:")) return hash.slice(7);
+    } catch (_) {}
+    return null;
+  }
+
+  // =========================================================================
   // UI LOGIC
   // =========================================================================
 
@@ -951,10 +969,10 @@
 
     try {
       const encrypted = await encryptSecret(secret, passphrase);
-      const payload = "QRSEC:" + encrypted;
+      const payload = GH_PAGES_URL + "#QRSEC:" + encrypted;
 
       if (payload.length > 2953) {
-        errEl.textContent = "Secret is too long for a QR code. Keep it under ~2000 characters.";
+        errEl.textContent = "Secret is too long for a QR code. Keep it under ~1950 characters.";
         return;
       }
 
@@ -992,12 +1010,13 @@
     const started = await QRScan.start(
       region,
       async (decodedText) => {
-        if (!decodedText.startsWith("QRSEC:")) {
+        const encrypted = extractPayload(decodedText);
+        if (!encrypted) {
           errEl.textContent = "Not a QR Secure Send code.";
           return false; // keep scanning
         }
         try {
-          const secret = await decryptSecret(decodedText.slice(6), passphrase);
+          const secret = await decryptSecret(encrypted, passphrase);
           document.getElementById("recv-value").textContent = secret;
           resultBox.style.display = "block";
           errEl.textContent = "";
@@ -1028,6 +1047,41 @@
     document.getElementById("scan-btn").style.display = "block";
     document.getElementById("stop-btn").style.display = "none";
   });
+
+  // Decrypt button (for link-based flow)
+  document.getElementById("decrypt-btn").addEventListener("click", async () => {
+    const passphrase = document.getElementById("recv-passphrase").value;
+    const errEl = document.getElementById("recv-error");
+    const resultBox = document.getElementById("recv-result");
+    errEl.textContent = "";
+    resultBox.style.display = "none";
+
+    if (!passphrase) { errEl.textContent = "Enter the decryption passphrase first."; return; }
+
+    const hashData = location.hash.startsWith("#QRSEC:") ? location.hash.slice(7) : null;
+    if (!hashData) { errEl.textContent = "No encrypted data found in URL."; return; }
+
+    try {
+      const secret = await decryptSecret(hashData, passphrase);
+      document.getElementById("recv-value").textContent = secret;
+      resultBox.style.display = "block";
+    } catch (e) {
+      errEl.textContent = "Decryption failed. Wrong passphrase?";
+    }
+  });
+
+  // Check URL hash for incoming encrypted data (link-based receive flow)
+  if (location.hash.startsWith("#QRSEC:")) {
+    // Switch to receive tab
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.querySelector('[data-tab="receive"]').classList.add("active");
+    document.getElementById("receive").classList.add("active");
+    // Show decrypt button instead of camera controls
+    document.getElementById("scan-btn").style.display = "none";
+    document.getElementById("decrypt-btn").style.display = "inline-block";
+    document.getElementById("link-notice").style.display = "block";
+  }
 
   // Copy to clipboard
   document.getElementById("copy-btn").addEventListener("click", async () => {
