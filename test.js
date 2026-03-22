@@ -19,7 +19,7 @@ jsCode = jsCode.replace('return { toCanvas };', 'return { toCanvas, encode };');
 // Make const/let top-level declarations accessible from the sandbox
 jsCode = jsCode.replace('const QRGen =', 'var QRGen =');
 jsCode = jsCode.replace('const QRScan =', 'var QRScan =');
-jsCode = jsCode.replace(/^  const (BRUTE_FORCE_NOTE|GH_PAGES_URL|METAMASK_DEEP_URL|APP_VERSION|WALLET_SIGN_MSG) =/gm,
+jsCode = jsCode.replace(/^  const (BRUTE_FORCE_NOTE|GH_PAGES_URL|METAMASK_DEEP_URL|APP_VERSION|WALLET_SIGN_PREFIX) =/gm,
   '  var $1 =');
 
 // Truncate at UI LOGIC to avoid DOM-dependent code
@@ -53,7 +53,7 @@ vm.runInContext(jsCode, sandbox);
 const {
   QRGen, encryptSecret, decryptSecret, deriveKey,
   evaluatePassphraseStrength, extractPayload, buildKeyInput,
-  WALLET_SIGN_MSG,
+  WALLET_SIGN_PREFIX, generateNonce,
 } = sandbox;
 
 // =========================================================================
@@ -64,11 +64,17 @@ describe('extractPayload', () => {
   it('parses raw QRSEC: prefix', () => {
     const r = extractPayload('QRSEC:abc123');
     assert.strictEqual(r.data, 'abc123'); assert.strictEqual(r.wallet, false);
+    assert.strictEqual(r.nonce, null);
   });
 
-  it('parses raw QRSECW: prefix', () => {
-    const r = extractPayload('QRSECW:abc123');
+  it('parses raw QRSECW: with nonce', () => {
+    const r = extractPayload('QRSECW:mynonce123:abc123');
     assert.strictEqual(r.data, 'abc123'); assert.strictEqual(r.wallet, true);
+    assert.strictEqual(r.nonce, 'mynonce123');
+  });
+
+  it('returns null for QRSECW: without nonce separator', () => {
+    assert.strictEqual(extractPayload('QRSECW:nodatahere'), null);
   });
 
   it('parses URL with QRSEC: in hash', () => {
@@ -77,8 +83,9 @@ describe('extractPayload', () => {
   });
 
   it('parses URL with QRSECW: in hash', () => {
-    const r = extractPayload('https://example.com/page#QRSECW:xyz');
+    const r = extractPayload('https://example.com/page#QRSECW:nonce42:xyz');
     assert.strictEqual(r.data, 'xyz'); assert.strictEqual(r.wallet, true);
+    assert.strictEqual(r.nonce, 'nonce42');
   });
 
   it('returns null for unrelated text', () => {
@@ -96,6 +103,14 @@ describe('extractPayload', () => {
   it('handles URL with query params and hash', () => {
     const r = extractPayload('https://example.com?v=1#QRSEC:data');
     assert.strictEqual(r.data, 'data'); assert.strictEqual(r.wallet, false);
+  });
+
+  it('generateNonce produces unique 32-char hex strings', () => {
+    const n1 = generateNonce();
+    const n2 = generateNonce();
+    assert.strictEqual(n1.length, 32);
+    assert.ok(/^[0-9a-f]{32}$/.test(n1));
+    assert.notStrictEqual(n1, n2);
   });
 });
 
@@ -412,12 +427,14 @@ describe('Payload format integration', () => {
     assert.strictEqual(decrypted, 'my secret');
   });
 
-  it('full flow with QRSECW: prefix', async () => {
+  it('full flow with QRSECW: prefix and nonce', async () => {
+    const nonce = generateNonce();
     const keyInput = buildKeyInput('pass', '0xfakewalletsig');
     const encrypted = await encryptSecret('wallet secret', keyInput);
-    const payload = 'QRSECW:' + encrypted;
+    const payload = 'QRSECW:' + nonce + ':' + encrypted;
     const extracted = extractPayload(payload);
     assert.strictEqual(extracted.wallet, true);
+    assert.strictEqual(extracted.nonce, nonce);
     const decrypted = await decryptSecret(extracted.data, keyInput);
     assert.strictEqual(decrypted, 'wallet secret');
   });

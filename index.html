@@ -159,7 +159,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.7.3</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.8.0</p>
   </header>
 
   <div class="tabs">
@@ -190,8 +190,9 @@
         </label>
         <div id="send-wallet-fields" class="wallet-fields">
           <p class="info" style="text-align:left;margin-bottom:0.5rem;line-height:1.5">
-            MetaMask will sign a fixed message using your private key.
+            Each QR code gets a unique random seed. MetaMask signs it with your private key.
             The resulting signature becomes the encryption key &mdash; only the same wallet can reproduce it.
+            If a signature leaks, only that specific QR is exposed, not future ones.
             Your private key never leaves MetaMask.
             You can also set a passphrase above for extra security (both will be needed to decrypt).
           </p>
@@ -227,7 +228,7 @@
         <p style="font-size:0.82rem;color:#d29922;margin-bottom:0.5rem;">
           This secret was encrypted with a wallet. Connect the same wallet to decrypt.
         </p>
-        <button class="wallet-btn" id="recv-wallet-connect-btn">Connect & Sign with MetaMask</button>
+        <button class="wallet-btn" id="recv-wallet-connect-btn">Connect MetaMask</button>
         <a class="wallet-btn" id="recv-wallet-deeplink" style="display:none;text-decoration:none;text-align:center" target="_blank">Open in MetaMask App</a>
         <div id="recv-wallet-status" class="wallet-address" style="display:none"></div>
       </div>
@@ -1019,18 +1020,24 @@
   // PAYLOAD HELPERS
   // =========================================================================
 
-  const APP_VERSION = "1.7.3";
+  const APP_VERSION = "1.8.0";
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
   const METAMASK_DEEP_URL = "https://link.metamask.io/dapp/degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
 
-  const WALLET_SIGN_MSG = "QR Secure Send: generate encryption key";
+  const WALLET_SIGN_PREFIX = "QR Secure Send: ";
 
-  // Ask MetaMask to sign a deterministic message. Returns the signature (hex string).
-  // Same wallet + same message = same signature every time (RFC 6979).
-  async function getWalletSignature(account) {
+  function generateNonce() {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Ask MetaMask to sign a message with a unique nonce. Returns the signature (hex string).
+  // Same wallet + same nonce = same signature every time (RFC 6979).
+  async function getWalletSignature(account, nonce) {
+    const msg = WALLET_SIGN_PREFIX + nonce;
     const sig = await window.ethereum.request({
       method: 'personal_sign',
-      params: [WALLET_SIGN_MSG, account]
+      params: [msg, account]
     });
     return sig;
   }
@@ -1039,13 +1046,20 @@
     return walletSignature ? passphrase + ':' + walletSignature : passphrase;
   }
 
-  // Extract encrypted data from raw or URL form. Returns { data, wallet } or null.
+  // Extract encrypted data from raw or URL form.
+  // Returns { data, wallet, nonce } or null.
+  // Wallet format: QRSECW:<nonce>:<base64>
   function extractPayload(text) {
     const sources = [text];
     try { const h = new URL(text).hash; if (h) sources.push(h.slice(1)); } catch (_) {}
     for (const s of sources) {
-      if (s.startsWith("QRSECW:")) return { data: s.slice(7), wallet: true };
-      if (s.startsWith("QRSEC:"))  return { data: s.slice(6), wallet: false };
+      if (s.startsWith("QRSECW:")) {
+        const rest = s.slice(7);
+        const colonIdx = rest.indexOf(':');
+        if (colonIdx === -1) return null;
+        return { data: rest.slice(colonIdx + 1), wallet: true, nonce: rest.slice(0, colonIdx) };
+      }
+      if (s.startsWith("QRSEC:")) return { data: s.slice(6), wallet: false, nonce: null };
     }
     return null;
   }
@@ -1091,8 +1105,8 @@
     document.getElementById("send-wallet-fields").classList.toggle("active", e.target.checked);
   });
 
-  // Send wallet connect
-  let sendWalletSignature = null;
+  // Send wallet connect (just connects — signing happens at generate time with a fresh nonce)
+  let sendWalletAccount = null;
 
   document.getElementById("send-wallet-connect-btn").addEventListener("click", async () => {
     const errEl = document.getElementById("send-error");
@@ -1104,14 +1118,13 @@
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       if (!accounts.length) { errEl.textContent = "No accounts returned."; return; }
-      const account = accounts[0];
-      sendWalletSignature = await getWalletSignature(account);
-      statusEl.textContent = "Signed with: " + account.toLowerCase();
+      sendWalletAccount = accounts[0];
+      statusEl.textContent = "Connected: " + sendWalletAccount.toLowerCase();
       statusEl.style.display = "block";
       document.getElementById("send-wallet-connect-btn").textContent = "Wallet Connected";
       document.getElementById("send-wallet-connect-btn").disabled = true;
     } catch (e) {
-      errEl.textContent = "Wallet connection/signing failed: " + (e.message || "User rejected.");
+      errEl.textContent = "Wallet connection failed: " + (e.message || "User rejected.");
     }
   });
 
@@ -1140,15 +1153,21 @@
       }
     }
 
-    if (useWallet && !sendWalletSignature) {
-      errEl.textContent = "Connect and sign with MetaMask first.";
+    if (useWallet && !sendWalletAccount) {
+      errEl.textContent = "Connect MetaMask first.";
       return;
     }
 
     try {
-      const keyInput = buildKeyInput(passphrase, useWallet ? sendWalletSignature : null);
+      let walletSig = null;
+      let nonce = null;
+      if (useWallet) {
+        nonce = generateNonce();
+        walletSig = await getWalletSignature(sendWalletAccount, nonce);
+      }
+      const keyInput = buildKeyInput(passphrase, walletSig);
       const encrypted = await encryptSecret(secret, keyInput);
-      const prefix = useWallet ? "QRSECW:" : "QRSEC:";
+      const prefix = useWallet ? "QRSECW:" + nonce + ":" : "QRSEC:";
       const payload = GH_PAGES_URL + "#" + prefix + encrypted;
 
       if (payload.length > 2953) {
@@ -1172,8 +1191,8 @@
       "loaded from the internet when you start the camera.";
   }
 
-  // Wallet connect & sign (receive side)
-  let recvWalletSignature = null;
+  // Wallet connect (receive side) — just connects; signing happens at decrypt time with the nonce
+  let recvWalletAccount = null;
 
   document.getElementById("recv-wallet-connect-btn").addEventListener("click", async () => {
     const statusEl = document.getElementById("recv-wallet-status");
@@ -1188,32 +1207,28 @@
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       if (!accounts.length) { errEl.textContent = "No accounts returned."; return; }
-      const account = accounts[0];
-      recvWalletSignature = await getWalletSignature(account);
-      statusEl.textContent = "Signed with: " + account.toLowerCase();
+      recvWalletAccount = accounts[0];
+      statusEl.textContent = "Connected: " + recvWalletAccount.toLowerCase();
       statusEl.style.display = "block";
-      document.getElementById("recv-wallet-connect-btn").textContent = "Wallet Signed";
+      document.getElementById("recv-wallet-connect-btn").textContent = "Wallet Connected";
       document.getElementById("recv-wallet-connect-btn").disabled = true;
     } catch (e) {
-      errEl.textContent = "Wallet connection/signing failed: " + (e.message || "User rejected.");
+      errEl.textContent = "Wallet connection failed: " + (e.message || "User rejected.");
     }
   });
 
-  // Re-sign if user switches account in MetaMask
   if (typeof window.ethereum !== 'undefined') {
-    window.ethereum.on('accountsChanged', async (accounts) => {
+    window.ethereum.on('accountsChanged', (accounts) => {
       if (accounts.length) {
-        try {
-          recvWalletSignature = await getWalletSignature(accounts[0]);
-          const statusEl = document.getElementById("recv-wallet-status");
-          statusEl.textContent = "Signed with: " + accounts[0].toLowerCase();
-          statusEl.style.display = "block";
-        } catch (_) { recvWalletSignature = null; }
+        recvWalletAccount = accounts[0];
+        const statusEl = document.getElementById("recv-wallet-status");
+        statusEl.textContent = "Connected: " + recvWalletAccount.toLowerCase();
+        statusEl.style.display = "block";
       } else {
-        recvWalletSignature = null;
+        recvWalletAccount = null;
         document.getElementById("recv-wallet-status").style.display = "none";
         const btn = document.getElementById("recv-wallet-connect-btn");
-        btn.textContent = "Connect & Sign with MetaMask"; btn.disabled = false;
+        btn.textContent = "Connect MetaMask"; btn.disabled = false;
       }
     });
   }
@@ -1243,13 +1258,15 @@
         }
         if (payload.wallet) {
           document.getElementById("recv-wallet-section").style.display = "block";
-          if (!recvWalletSignature) {
-            errEl.textContent = "This secret requires wallet signing. Connect & sign with MetaMask first, then scan again.";
+          if (!recvWalletAccount) {
+            errEl.textContent = "This secret requires wallet authentication. Connect MetaMask first, then scan again.";
             return false;
           }
         }
         try {
-          const keyInput = buildKeyInput(passphrase, payload.wallet ? recvWalletSignature : null);
+          let walletSig = null;
+          if (payload.wallet) walletSig = await getWalletSignature(recvWalletAccount, payload.nonce);
+          const keyInput = buildKeyInput(passphrase, walletSig);
           const secret = await decryptSecret(payload.data, keyInput);
           document.getElementById("recv-value").textContent = secret;
           resultBox.style.display = "block";
@@ -1296,14 +1313,16 @@
     const payload = extractPayload(location.hash.slice(1));
     if (!payload) { errEl.textContent = "No encrypted data found in URL."; return; }
 
-    if (payload.wallet && !recvWalletSignature) {
-      errEl.textContent = "This secret requires wallet signing. Connect & sign with MetaMask first.";
+    if (payload.wallet && !recvWalletAccount) {
+      errEl.textContent = "This secret requires wallet authentication. Connect MetaMask first.";
       document.getElementById("recv-wallet-section").style.display = "block";
       return;
     }
 
     try {
-      const keyInput = buildKeyInput(passphrase, payload.wallet ? recvWalletSignature : null);
+      let walletSig = null;
+      if (payload.wallet) walletSig = await getWalletSignature(recvWalletAccount, payload.nonce);
+      const keyInput = buildKeyInput(passphrase, walletSig);
       const secret = await decryptSecret(payload.data, keyInput);
       document.getElementById("recv-value").textContent = secret;
       resultBox.style.display = "block";
