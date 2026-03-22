@@ -159,7 +159,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.5</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.6</p>
   </header>
 
   <div class="tabs">
@@ -203,9 +203,14 @@
     </div>
 
     <div id="qr-output"></div>
-    <p id="qr-info" class="info" style="display:none">
-      Show this QR code to the receiving device's camera.
-    </p>
+    <div id="qr-info" style="display:none">
+      <p class="info">Show this QR code to the receiving device's camera, or share the link below.</p>
+      <div class="result-box" style="display:block;margin-top:0.8rem">
+        <div class="label">Shareable Link</div>
+        <div class="value" id="qr-url" style="font-size:0.8rem;word-break:break-all;user-select:all"></div>
+        <button class="copy-btn" id="copy-url-btn">Copy link</button>
+      </div>
+    </div>
   </div>
 
   <!-- RECEIVE PANEL -->
@@ -1011,7 +1016,7 @@
   // PAYLOAD HELPERS
   // =========================================================================
 
-  const APP_VERSION = "1.6.5";
+  const APP_VERSION = "1.6.6";
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
   const METAMASK_DEEP_URL = "https://link.metamask.io/dapp/degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
 
@@ -1117,6 +1122,7 @@
       }
 
       QRGen.toCanvas(output, payload, { width: 500, margin: 2 });
+      document.getElementById("qr-url").textContent = payload;
       info.style.display = "block";
     } catch (e) {
       errEl.textContent = "Failed to generate QR code: " + e.message;
@@ -1284,7 +1290,19 @@
     }
   }
 
-  // Copy to clipboard
+  // Copy link to clipboard
+  document.getElementById("copy-url-btn").addEventListener("click", async () => {
+    const value = document.getElementById("qr-url").textContent;
+    try { await navigator.clipboard.writeText(value); } catch (_) {
+      const ta = document.createElement("textarea"); ta.value = value;
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    document.getElementById("copy-url-btn").textContent = "Copied!";
+    setTimeout(() => { document.getElementById("copy-url-btn").textContent = "Copy link"; }, 2000);
+  });
+
+  // Copy decrypted secret to clipboard
   document.getElementById("copy-btn").addEventListener("click", async () => {
     const value = document.getElementById("recv-value").textContent;
     try {
