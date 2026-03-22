@@ -159,7 +159,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.7.0</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.7.1</p>
   </header>
 
   <div class="tabs">
@@ -1016,7 +1016,7 @@
   // PAYLOAD HELPERS
   // =========================================================================
 
-  const APP_VERSION = "1.7.0";
+  const APP_VERSION = "1.7.1";
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
   const METAMASK_DEEP_URL = "https://link.metamask.io/dapp/degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
 
@@ -1313,6 +1313,15 @@
 
   // Check URL hash for incoming encrypted data (link-based receive flow)
   if (location.hash.startsWith("#QRSEC:") || location.hash.startsWith("#QRSECW:")) {
+    // Wallet mode + no MetaMask → redirect to MetaMask deep link (mobile)
+    if (location.hash.startsWith("#QRSECW:") && typeof window.ethereum === 'undefined') {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = METAMASK_DEEP_URL + location.hash;
+        // stop further execution; page will redirect
+      }
+    }
+
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     document.querySelector('[data-tab="receive"]').classList.add("active");
@@ -1323,8 +1332,8 @@
     if (location.hash.startsWith("#QRSECW:")) {
       document.getElementById("recv-wallet-section").style.display = "block";
       document.getElementById("link-notice").textContent =
-        "Encrypted data received via link. This secret requires wallet authentication. " +
-        "Connect your wallet, enter the passphrase, and click Decrypt.";
+        "Encrypted data received via link. This secret requires wallet signing. " +
+        "Connect & sign with your wallet, enter the passphrase (if set), and click Decrypt.";
     }
   }
 

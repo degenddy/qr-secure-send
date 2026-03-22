@@ -1,6 +1,6 @@
 {
   "name": "qr-secure-send",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Encrypt and transfer secrets via QR code",
   "keywords": ["qr", "qrcode", "encryption", "password", "secure", "transfer"],
   "author": "",
