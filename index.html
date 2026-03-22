@@ -156,7 +156,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.0</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.1</p>
   </header>
 
   <div class="tabs">
@@ -175,7 +175,7 @@
 
       <label for="send-passphrase">Encryption Passphrase</label>
       <div class="input-wrap">
-        <input type="password" id="send-passphrase" placeholder="Shared passphrase..." autocomplete="off">
+        <input type="password" id="send-passphrase" placeholder="Optional passphrase..." autocomplete="off">
         <button class="toggle-vis" data-target="send-passphrase">show</button>
       </div>
       <div id="send-passphrase-strength" class="passphrase-strength"></div>
@@ -210,7 +210,7 @@
     <div class="card">
       <label for="recv-passphrase">Decryption Passphrase</label>
       <div class="input-wrap">
-        <input type="password" id="recv-passphrase" placeholder="Same passphrase used to encrypt..." autocomplete="off">
+        <input type="password" id="recv-passphrase" placeholder="Passphrase (leave empty if none was set)..." autocomplete="off">
         <button class="toggle-vis" data-target="recv-passphrase">show</button>
       </div>
       <div id="recv-passphrase-strength" class="passphrase-strength"></div>
@@ -1085,12 +1085,15 @@
     info.style.display = "none";
 
     if (!secret) { errEl.textContent = "Please enter a secret."; return; }
-    if (!passphrase) { errEl.textContent = "Please enter a passphrase."; return; }
 
-    const strength = evaluatePassphraseStrength(passphrase);
-    if (strength.level === 'weak') {
-      if (!confirm('Your passphrase is weak (~' + strength.bits + '-bit entropy). ' +
-        'An attacker who captures this QR code could crack it offline. Continue anyway?')) return;
+    if (!passphrase && !useWallet) {
+      if (!confirm('No passphrase or wallet set. Anyone who scans this QR code can read the secret. Continue?')) return;
+    } else if (passphrase) {
+      const strength = evaluatePassphraseStrength(passphrase);
+      if (strength.level === 'weak') {
+        if (!confirm('Your passphrase is weak (~' + strength.bits + '-bit entropy). ' +
+          'An attacker who captures this QR code could crack it offline. Continue anyway?')) return;
+      }
     }
 
     if (useWallet) {
@@ -1175,7 +1178,6 @@
     errEl.textContent = "";
     resultBox.style.display = "none";
 
-    if (!passphrase) { errEl.textContent = "Enter the decryption passphrase first."; return; }
 
     document.getElementById("scan-btn").style.display = "none";
     document.getElementById("stop-btn").style.display = "block";
@@ -1241,7 +1243,6 @@
     errEl.textContent = "";
     resultBox.style.display = "none";
 
-    if (!passphrase) { errEl.textContent = "Enter the decryption passphrase first."; return; }
 
     const payload = extractPayload(location.hash.slice(1));
     if (!payload) { errEl.textContent = "No encrypted data found in URL."; return; }
