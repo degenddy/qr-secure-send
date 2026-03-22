@@ -159,7 +159,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.6</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.7</p>
   </header>
 
   <div class="tabs">
@@ -226,6 +226,7 @@
           This secret requires wallet authentication. Connect the designated wallet to decrypt.
         </p>
         <button class="wallet-btn" id="recv-wallet-connect-btn">Connect MetaMask</button>
+        <a class="wallet-btn" id="recv-wallet-deeplink" style="display:none;text-decoration:none;text-align:center" target="_blank">Open in MetaMask App</a>
         <div id="recv-wallet-status" class="wallet-address" style="display:none"></div>
       </div>
 
@@ -1016,7 +1017,7 @@
   // PAYLOAD HELPERS
   // =========================================================================
 
-  const APP_VERSION = "1.6.6";
+  const APP_VERSION = "1.6.7";
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
   const METAMASK_DEEP_URL = "https://link.metamask.io/dapp/degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
 
@@ -1113,8 +1114,7 @@
       const keyInput = buildKeyInput(passphrase, walletAddress);
       const encrypted = await encryptSecret(secret, keyInput);
       const prefix = useWallet ? "QRSECW:" : "QRSEC:";
-      const baseUrl = useWallet ? METAMASK_DEEP_URL : GH_PAGES_URL;
-      const payload = baseUrl + "#" + prefix + encrypted;
+      const payload = GH_PAGES_URL + "#" + prefix + encrypted;
 
       if (payload.length > 2953) {
         errEl.textContent = "Secret is too long for a QR code. Keep it under ~1950 characters.";
@@ -1144,7 +1144,10 @@
     const statusEl = document.getElementById("recv-wallet-status");
     const errEl = document.getElementById("recv-error");
     if (typeof window.ethereum === 'undefined') {
-      errEl.textContent = "MetaMask (or compatible wallet) not detected. Please install MetaMask.";
+      errEl.textContent = "MetaMask not detected. Install the MetaMask extension, or use the button below to open in the MetaMask mobile app.";
+      const deepEl = document.getElementById("recv-wallet-deeplink");
+      deepEl.href = METAMASK_DEEP_URL + location.hash;
+      deepEl.style.display = "inline-block";
       return;
     }
     try {
