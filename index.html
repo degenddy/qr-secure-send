@@ -159,7 +159,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.7.1</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.7.2</p>
   </header>
 
   <div class="tabs">
@@ -189,8 +189,11 @@
           Encrypt with crypto wallet (MetaMask)
         </label>
         <div id="send-wallet-fields" class="wallet-fields">
-          <p class="info" style="text-align:left;margin-bottom:0.5rem">
-            Your wallet's private key will be used to encrypt. Only the same wallet can decrypt.
+          <p class="info" style="text-align:left;margin-bottom:0.5rem;line-height:1.5">
+            MetaMask will sign a fixed message using your private key.
+            The resulting signature becomes the encryption key &mdash; only the same wallet can reproduce it.
+            Your private key never leaves MetaMask.
+            You can also set a passphrase above for extra security (both will be needed to decrypt).
           </p>
           <button class="wallet-btn" id="send-wallet-connect-btn">Connect MetaMask</button>
           <div id="send-wallet-status" class="wallet-address" style="display:none"></div>
@@ -1016,7 +1019,7 @@
   // PAYLOAD HELPERS
   // =========================================================================
 
-  const APP_VERSION = "1.7.1";
+  const APP_VERSION = "1.7.2";
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
   const METAMASK_DEEP_URL = "https://link.metamask.io/dapp/degenddy.github.io/qr-secure-send/?v=" + APP_VERSION;
 
