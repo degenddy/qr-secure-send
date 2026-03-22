@@ -124,7 +124,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.5.0</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.5.1</p>
   </header>
 
   <div class="tabs">
@@ -183,6 +183,11 @@
       <div class="value" id="recv-value"></div>
       <button class="copy-btn" id="copy-btn">Copy to clipboard</button>
     </div>
+  </div>
+
+  <div style="margin:2rem auto;max-width:480px;padding:0.8rem 1rem;background:#0d4429;border:1px solid #1a7f42;border-radius:8px;color:#3fb950;font-size:0.82rem;text-align:center;line-height:1.5">
+    This app runs <strong>entirely in your browser</strong>. Nothing is sent to any server &mdash; all encryption and decryption happen locally using the Web Crypto API.
+    <br>For fully offline use: <code style="background:#161b22;padding:0.15rem 0.4rem;border-radius:4px;color:#58a6ff">npx qr-secure-send</code>
   </div>
 
   <script>
