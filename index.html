@@ -118,13 +118,45 @@
       font-size: 0.8rem; color: #d29922; margin-top: 0.5rem;
       padding: 0.5rem; background: #d299220f; border-radius: 4px;
     }
+
+    .passphrase-strength {
+      font-size: 0.78rem; line-height: 1.4; margin-top: -0.6rem;
+      margin-bottom: 0.8rem; padding: 0.4rem 0.6rem;
+      border-radius: 4px; display: none;
+    }
+    .passphrase-strength.weak { color: #f85149; background: #f851490f; display: block; }
+    .passphrase-strength.moderate { color: #d29922; background: #d299220f; display: block; }
+    .passphrase-strength.strong { color: #3fb950; background: #3fb9500f; display: block; }
+
+    .wallet-section {
+      margin-bottom: 1rem; padding: 0.8rem;
+      background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    }
+    .wallet-toggle {
+      display: flex; align-items: center; gap: 0.5rem; cursor: pointer;
+      font-size: 0.85rem; color: #8b949e; text-transform: none; letter-spacing: 0;
+    }
+    .wallet-toggle input[type="checkbox"] { width: auto; margin: 0; }
+    .wallet-fields { display: none; margin-top: 0.8rem; }
+    .wallet-fields.active { display: block; }
+    .wallet-address {
+      font-family: "SF Mono", "Fira Code", monospace; font-size: 0.82rem;
+      color: #58a6ff; word-break: break-all; padding: 0.3rem 0;
+    }
+    button.wallet-btn {
+      padding: 0.5rem 0.8rem; background: #f6851b; color: #fff; border: none;
+      border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.wallet-btn:hover { background: #e2761b; }
+    button.wallet-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.5.2</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.0</p>
   </header>
 
   <div class="tabs">
@@ -146,6 +178,22 @@
         <input type="password" id="send-passphrase" placeholder="Shared passphrase..." autocomplete="off">
         <button class="toggle-vis" data-target="send-passphrase">show</button>
       </div>
+      <div id="send-passphrase-strength" class="passphrase-strength"></div>
+
+      <div class="wallet-section">
+        <label class="wallet-toggle">
+          <input type="checkbox" id="send-wallet-toggle">
+          Require receiver's crypto wallet (MetaMask)
+        </label>
+        <div id="send-wallet-fields" class="wallet-fields">
+          <label for="send-wallet-address">Receiver Wallet Address</label>
+          <input type="text" id="send-wallet-address" placeholder="0x..." autocomplete="off"
+                 style="font-family:'SF Mono','Fira Code',monospace;font-size:0.85rem;">
+          <p class="info" style="margin-top:-0.5rem;text-align:left">
+            The receiver must connect this exact wallet to decrypt. The address is mixed into the encryption key.
+          </p>
+        </div>
+      </div>
 
       <button class="primary" id="generate-btn">Generate QR Code</button>
       <div id="send-error" class="error"></div>
@@ -164,6 +212,15 @@
       <div class="input-wrap">
         <input type="password" id="recv-passphrase" placeholder="Same passphrase used to encrypt..." autocomplete="off">
         <button class="toggle-vis" data-target="recv-passphrase">show</button>
+      </div>
+      <div id="recv-passphrase-strength" class="passphrase-strength"></div>
+
+      <div id="recv-wallet-section" class="wallet-section" style="display:none">
+        <p style="font-size:0.82rem;color:#d29922;margin-bottom:0.5rem;">
+          This secret requires wallet authentication. Connect the designated wallet to decrypt.
+        </p>
+        <button class="wallet-btn" id="recv-wallet-connect-btn">Connect MetaMask</button>
+        <div id="recv-wallet-status" class="wallet-address" style="display:none"></div>
       </div>
 
       <div class="btn-row">
@@ -187,7 +244,8 @@
 
   <div style="margin:2rem auto;max-width:480px;padding:0.8rem 1rem;background:#0d4429;border:1px solid #1a7f42;border-radius:8px;color:#3fb950;font-size:0.82rem;text-align:center;line-height:1.5">
     This app runs <strong>entirely in your browser</strong>. Nothing is sent to any server &mdash; all encryption and decryption happen locally using the Web Crypto API.
-    <br>For fully offline use: <code style="background:#161b22;padding:0.15rem 0.4rem;border-radius:4px;color:#58a6ff">npm i -g qr-secure-send && qr-secure-send</code>
+    <br>For fully offline use:
+    <br><code style="background:#161b22;padding:0.3rem 0.6rem;border-radius:4px;color:#58a6ff;display:inline-block;margin-top:0.4rem">npm i -g qr-secure-send && qr-secure-send</code>
   </div>
 
   <script>
@@ -914,18 +972,58 @@
 
 
   // =========================================================================
+  // PASSPHRASE STRENGTH
+  // =========================================================================
+
+  const BRUTE_FORCE_NOTE = 'There is no rate-limiting \u2014 an attacker with the ' +
+    'encrypted data can try passphrases offline at thousands of guesses/sec per GPU.';
+
+  function evaluatePassphraseStrength(passphrase) {
+    if (!passphrase) return { level: 'none', bits: 0, message: '' };
+
+    let charsetSize = 0;
+    if (/[a-z]/.test(passphrase)) charsetSize += 26;
+    if (/[A-Z]/.test(passphrase)) charsetSize += 26;
+    if (/[0-9]/.test(passphrase)) charsetSize += 10;
+    if (/[^a-zA-Z0-9]/.test(passphrase)) charsetSize += 33;
+    if (charsetSize === 0) charsetSize = 26;
+
+    let bits = Math.floor(passphrase.length * Math.log2(charsetSize));
+    if (/^(.)\1+$/.test(passphrase)) bits = 4;
+    if (/^[a-z]+$/i.test(passphrase)) bits = Math.floor(bits * 0.7);
+    if (passphrase.length < 6) bits = Math.min(bits, 20);
+
+    if (bits < 35) {
+      return { level: 'weak', bits, message:
+        'Weak (~' + bits + '-bit). Crackable in hours/days by a GPU. ' + BRUTE_FORCE_NOTE +
+        ' Use 12+ chars with mixed case, digits & symbols, or a 5+ word passphrase.' };
+    }
+    if (bits < 50) {
+      return { level: 'moderate', bits, message:
+        'Moderate (~' + bits + '-bit). May resist casual attacks but not a determined adversary. ' +
+        BRUTE_FORCE_NOTE + ' Consider a longer passphrase for sensitive secrets.' };
+    }
+    return { level: 'strong', bits, message: 'Strong (~' + bits + '-bit).' };
+  }
+
+  // =========================================================================
   // PAYLOAD HELPERS
   // =========================================================================
 
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/";
 
-  // Extract the base64 encrypted data from either raw "QRSEC:..." or a URL with "#QRSEC:..."
+  function buildKeyInput(passphrase, walletAddress) {
+    return walletAddress ? passphrase + ':' + walletAddress.toLowerCase() : passphrase;
+  }
+
+  // Extract encrypted data from raw or URL form. Returns { data, wallet } or null.
   function extractPayload(text) {
-    if (text.startsWith("QRSEC:")) return text.slice(6);
-    try {
-      const hash = new URL(text).hash;
-      if (hash.startsWith("#QRSEC:")) return hash.slice(7);
-    } catch (_) {}
+    const sources = [text];
+    try { const h = new URL(text).hash; if (h) sources.push(h.slice(1)); } catch (_) {}
+    for (const s of sources) {
+      if (s.startsWith("QRSECW:")) return { data: s.slice(7), wallet: true };
+      if (s.startsWith("QRSEC:"))  return { data: s.slice(6), wallet: false };
+    }
     return null;
   }
 
@@ -957,10 +1055,27 @@
     });
   });
 
+  // Passphrase strength listeners
+  ['send-passphrase', 'recv-passphrase'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const result = evaluatePassphraseStrength(document.getElementById(id).value);
+      const el = document.getElementById(id + '-strength');
+      el.className = 'passphrase-strength' + (result.level !== 'none' ? ' ' + result.level : '');
+      el.textContent = result.message;
+    });
+  });
+
+  // Send wallet toggle
+  document.getElementById("send-wallet-toggle").addEventListener("change", (e) => {
+    document.getElementById("send-wallet-fields").classList.toggle("active", e.target.checked);
+  });
+
   // QR Generation
   document.getElementById("generate-btn").addEventListener("click", async () => {
     const secret = document.getElementById("secret").value.trim();
     const passphrase = document.getElementById("send-passphrase").value;
+    const useWallet = document.getElementById("send-wallet-toggle").checked;
+    const walletAddress = useWallet ? document.getElementById("send-wallet-address").value.trim() : null;
     const errEl = document.getElementById("send-error");
     const output = document.getElementById("qr-output");
     const info = document.getElementById("qr-info");
@@ -972,9 +1087,24 @@
     if (!secret) { errEl.textContent = "Please enter a secret."; return; }
     if (!passphrase) { errEl.textContent = "Please enter a passphrase."; return; }
 
+    const strength = evaluatePassphraseStrength(passphrase);
+    if (strength.level === 'weak') {
+      if (!confirm('Your passphrase is weak (~' + strength.bits + '-bit entropy). ' +
+        'An attacker who captures this QR code could crack it offline. Continue anyway?')) return;
+    }
+
+    if (useWallet) {
+      if (!walletAddress || !/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
+        errEl.textContent = "Enter a valid Ethereum wallet address (0x + 40 hex characters).";
+        return;
+      }
+    }
+
     try {
-      const encrypted = await encryptSecret(secret, passphrase);
-      const payload = GH_PAGES_URL + "#QRSEC:" + encrypted;
+      const keyInput = buildKeyInput(passphrase, walletAddress);
+      const encrypted = await encryptSecret(secret, keyInput);
+      const prefix = useWallet ? "QRSECW:" : "QRSEC:";
+      const payload = GH_PAGES_URL + "#" + prefix + encrypted;
 
       if (payload.length > 2953) {
         errEl.textContent = "Secret is too long for a QR code. Keep it under ~1950 characters.";
@@ -996,6 +1126,46 @@
       "loaded from the internet when you start the camera.";
   }
 
+  // Wallet connect (receive side)
+  let connectedWalletAddress = null;
+
+  document.getElementById("recv-wallet-connect-btn").addEventListener("click", async () => {
+    const statusEl = document.getElementById("recv-wallet-status");
+    const errEl = document.getElementById("recv-error");
+    if (typeof window.ethereum === 'undefined') {
+      errEl.textContent = "MetaMask (or compatible wallet) not detected. Please install MetaMask.";
+      return;
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (!accounts.length) { errEl.textContent = "No accounts returned. Please unlock MetaMask."; return; }
+      connectedWalletAddress = accounts[0].toLowerCase();
+      statusEl.textContent = "Connected: " + connectedWalletAddress;
+      statusEl.style.display = "block";
+      document.getElementById("recv-wallet-connect-btn").textContent = "Wallet Connected";
+      document.getElementById("recv-wallet-connect-btn").disabled = true;
+    } catch (e) {
+      errEl.textContent = "Wallet connection failed: " + (e.message || "User rejected request.");
+    }
+  });
+
+  // Update wallet address if user switches account in MetaMask
+  if (typeof window.ethereum !== 'undefined') {
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length) {
+        connectedWalletAddress = accounts[0].toLowerCase();
+        const statusEl = document.getElementById("recv-wallet-status");
+        statusEl.textContent = "Connected: " + connectedWalletAddress;
+        statusEl.style.display = "block";
+      } else {
+        connectedWalletAddress = null;
+        document.getElementById("recv-wallet-status").style.display = "none";
+        const btn = document.getElementById("recv-wallet-connect-btn");
+        btn.textContent = "Connect MetaMask"; btn.disabled = false;
+      }
+    });
+  }
+
   // QR Scanning
   document.getElementById("scan-btn").addEventListener("click", async () => {
     const passphrase = document.getElementById("recv-passphrase").value;
@@ -1015,23 +1185,33 @@
     const started = await QRScan.start(
       region,
       async (decodedText) => {
-        const encrypted = extractPayload(decodedText);
-        if (!encrypted) {
+        const payload = extractPayload(decodedText);
+        if (!payload) {
           errEl.textContent = "Not a QR Secure Send code.";
-          return false; // keep scanning
+          return false;
+        }
+        if (payload.wallet) {
+          document.getElementById("recv-wallet-section").style.display = "block";
+          if (!connectedWalletAddress) {
+            errEl.textContent = "This secret requires wallet authentication. Connect your wallet first, then scan again.";
+            return false;
+          }
         }
         try {
-          const secret = await decryptSecret(encrypted, passphrase);
+          const keyInput = buildKeyInput(passphrase, payload.wallet ? connectedWalletAddress : null);
+          const secret = await decryptSecret(payload.data, keyInput);
           document.getElementById("recv-value").textContent = secret;
           resultBox.style.display = "block";
           errEl.textContent = "";
           QRScan.stop(region);
           document.getElementById("scan-btn").style.display = "block";
           document.getElementById("stop-btn").style.display = "none";
-          return true; // success, stop scanning
+          return true;
         } catch (e) {
-          errEl.textContent = "Decryption failed. Wrong passphrase?";
-          return false; // keep scanning
+          errEl.textContent = payload.wallet
+            ? "Decryption failed. Wrong passphrase or wrong wallet?"
+            : "Decryption failed. Wrong passphrase?";
+          return false;
         }
       },
       (msg) => {
@@ -1063,29 +1243,42 @@
 
     if (!passphrase) { errEl.textContent = "Enter the decryption passphrase first."; return; }
 
-    const hashData = location.hash.startsWith("#QRSEC:") ? location.hash.slice(7) : null;
-    if (!hashData) { errEl.textContent = "No encrypted data found in URL."; return; }
+    const payload = extractPayload(location.hash.slice(1));
+    if (!payload) { errEl.textContent = "No encrypted data found in URL."; return; }
+
+    if (payload.wallet && !connectedWalletAddress) {
+      errEl.textContent = "This secret requires wallet authentication. Connect your wallet first.";
+      document.getElementById("recv-wallet-section").style.display = "block";
+      return;
+    }
 
     try {
-      const secret = await decryptSecret(hashData, passphrase);
+      const keyInput = buildKeyInput(passphrase, payload.wallet ? connectedWalletAddress : null);
+      const secret = await decryptSecret(payload.data, keyInput);
       document.getElementById("recv-value").textContent = secret;
       resultBox.style.display = "block";
     } catch (e) {
-      errEl.textContent = "Decryption failed. Wrong passphrase?";
+      errEl.textContent = payload.wallet
+        ? "Decryption failed. Wrong passphrase or wrong wallet?"
+        : "Decryption failed. Wrong passphrase?";
     }
   });
 
   // Check URL hash for incoming encrypted data (link-based receive flow)
-  if (location.hash.startsWith("#QRSEC:")) {
-    // Switch to receive tab
+  if (location.hash.startsWith("#QRSEC:") || location.hash.startsWith("#QRSECW:")) {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     document.querySelector('[data-tab="receive"]').classList.add("active");
     document.getElementById("receive").classList.add("active");
-    // Show decrypt button instead of camera controls
     document.getElementById("scan-btn").style.display = "none";
     document.getElementById("decrypt-btn").style.display = "inline-block";
     document.getElementById("link-notice").style.display = "block";
+    if (location.hash.startsWith("#QRSECW:")) {
+      document.getElementById("recv-wallet-section").style.display = "block";
+      document.getElementById("link-notice").textContent =
+        "Encrypted data received via link. This secret requires wallet authentication. " +
+        "Connect your wallet, enter the passphrase, and click Decrypt.";
+    }
   }
 
   // Copy to clipboard
