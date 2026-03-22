@@ -1,8 +1,15 @@
 {
   "name": "qr-secure-send",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Encrypt and transfer secrets via QR code",
-  "keywords": ["qr", "qrcode", "encryption", "password", "secure", "transfer"],
+  "keywords": [
+    "qr",
+    "qrcode",
+    "encryption",
+    "password",
+    "secure",
+    "transfer"
+  ],
   "author": "",
   "license": "MIT",
   "repository": {
@@ -14,6 +21,9 @@
   },
   "scripts": {
     "start": "node cli.js",
-    "test": "node --test test.js"
+    "test": "jest --verbose"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
