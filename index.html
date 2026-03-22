@@ -156,7 +156,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.2</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.3</p>
   </header>
 
   <div class="tabs">
@@ -1009,6 +1009,7 @@
   // =========================================================================
 
   const GH_PAGES_URL = "https://degenddy.github.io/qr-secure-send/";
+  const METAMASK_DEEP_URL = "https://link.metamask.io/dapp/degenddy.github.io/qr-secure-send/";
 
   function buildKeyInput(passphrase, walletAddress) {
     return walletAddress ? passphrase + ':' + walletAddress.toLowerCase() : passphrase;
@@ -1103,7 +1104,8 @@
       const keyInput = buildKeyInput(passphrase, walletAddress);
       const encrypted = await encryptSecret(secret, keyInput);
       const prefix = useWallet ? "QRSECW:" : "QRSEC:";
-      const payload = GH_PAGES_URL + "#" + prefix + encrypted;
+      const baseUrl = useWallet ? METAMASK_DEEP_URL : GH_PAGES_URL;
+      const payload = baseUrl + "#" + prefix + encrypted;
 
       if (payload.length > 2953) {
         errEl.textContent = "Secret is too long for a QR code. Keep it under ~1950 characters.";
