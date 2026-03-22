@@ -156,7 +156,7 @@
   <header>
     <h1>QR Secure Send</h1>
     <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.1</p>
+    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v1.6.2</p>
   </header>
 
   <div class="tabs">
@@ -213,8 +213,6 @@
         <input type="password" id="recv-passphrase" placeholder="Passphrase (leave empty if none was set)..." autocomplete="off">
         <button class="toggle-vis" data-target="recv-passphrase">show</button>
       </div>
-      <div id="recv-passphrase-strength" class="passphrase-strength"></div>
-
       <div id="recv-wallet-section" class="wallet-section" style="display:none">
         <p style="font-size:0.82rem;color:#d29922;margin-bottom:0.5rem;">
           This secret requires wallet authentication. Connect the designated wallet to decrypt.
@@ -1056,13 +1054,11 @@
   });
 
   // Passphrase strength listeners
-  ['send-passphrase', 'recv-passphrase'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => {
-      const result = evaluatePassphraseStrength(document.getElementById(id).value);
-      const el = document.getElementById(id + '-strength');
-      el.className = 'passphrase-strength' + (result.level !== 'none' ? ' ' + result.level : '');
-      el.textContent = result.message;
-    });
+  document.getElementById('send-passphrase').addEventListener('input', () => {
+    const result = evaluatePassphraseStrength(document.getElementById('send-passphrase').value);
+    const el = document.getElementById('send-passphrase-strength');
+    el.className = 'passphrase-strength' + (result.level !== 'none' ? ' ' + result.level : '');
+    el.textContent = result.message;
   });
 
   // Send wallet toggle
