@@ -95,7 +95,7 @@ test('browser: CSP blocks unapproved inline and remote code', async () => {
 test('browser: bundled scanner verifies and decodes a generated QR while offline', async () => {
   const external=[];page.on('request',request=>{if(!request.url().startsWith(base))external.push(request.url());});
   await page.goto(base);await context.setOffline(true);
-  await page.locator('summary').click();await page.locator('#verify-scanner-btn').click();
+  await page.locator('.integrity-details > summary').click();await page.locator('#verify-scanner-btn').click();
   await page.waitForFunction(()=>document.getElementById('scanner-integrity-status').textContent.startsWith('Matched'));
   const result=await page.evaluate(async()=>{
     const container=document.createElement('div');
@@ -125,7 +125,7 @@ test('browser: scanner fingerprint rejects changed library before its initialize
   const source=changed.match(/<script>([\s\S]*?)<\/script>/)[1];
   changed=changed.replace(/script-src 'sha256-[^']+'/, "script-src 'sha256-"+createHash('sha256').update(source).digest('base64')+"'");
   await page.route(base+'/',route=>route.fulfill({body:changed,contentType:'text/html'}));
-  await page.goto(base);await page.locator('summary').click();await page.locator('#verify-scanner-btn').click();
+  await page.goto(base);await page.locator('.integrity-details > summary').click();await page.locator('#verify-scanner-btn').click();
   await page.waitForFunction(()=>document.getElementById('scanner-integrity-status').textContent.startsWith('Blocked'));
   assert.match(await page.locator('#scanner-integrity-status').textContent(),/fingerprint mismatch/);
   assert.equal(await page.evaluate(()=>window.scannerTampered),undefined);

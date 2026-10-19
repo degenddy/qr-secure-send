@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-5tO+toD2sOh2qnuRg+l9tUZgCprzhn9SuINn7dgJDMI='; style-src 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-31AfFkIivb4y0L1VEh5hC6BWHNjVBQ+lNB6WgPlH5wk='; style-src 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -10,296 +10,316 @@
   <meta http-equiv="Expires" content="0">
   <title>QR Secure Send</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f1117;
-      color: #e1e4e8;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
+    :root { color-scheme: dark; --bg:#0c1118; --surface:#141c26; --line:#2c3848; --text:#edf3f8; --muted:#a2b0c2; --accent:#b5f5ce; --amber:#f4c77d; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--text); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:15px; line-height:1.5; min-height:100vh; }
     body[hidden] { display: none !important; }
-
-    header { text-align: center; padding: 2rem 1rem 1rem; }
-    header h1 { font-size: 1.5rem; font-weight: 600; color: #f0f0f0; }
-    header p { font-size: 0.85rem; color: #8b949e; margin-top: 0.25rem; }
-
-    .tabs {
-      display: flex; margin: 1rem 0; border-radius: 8px;
-      overflow: hidden; border: 1px solid #30363d;
+    [hidden] { display:none !important; }
+    body::before { content:""; position:absolute; inset:0 0 auto; height:480px; z-index:-1; pointer-events:none; background:radial-gradient(ellipse at 75% 0%,#1c3b374d,transparent 65%); }
+    button,input,textarea { font:inherit; }
+    button,summary { -webkit-tap-highlight-color:transparent; }
+    button { cursor:pointer; }
+    button:disabled { cursor:wait; opacity:.55; }
+    button:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
+    button { transition:background .16s,border-color .16s,transform .16s; }
+    ::selection { background:#b5f5ce; color:#101a15; }
+    .site-header { max-width:1180px; margin:auto; padding:26px 40px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    .brand { display:flex; align-items:center; gap:12px; font-size:17px; font-weight:700; letter-spacing:-.5px; }
+    .brand-mark { display:grid; place-items:center; width:38px; height:38px; border-radius:11px; background:var(--accent); color:#183126; }
+    svg { display:block; flex-shrink:0; }
+    .version { color:var(--muted); font-size:11px; font-weight:500; letter-spacing:0; border:1px solid var(--line); padding:3px 7px; border-radius:6px; }
+    .local-note { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+    .status-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px #b5f5ce0d; }
+    main { max-width:1180px; padding:0 40px; margin:0 auto; }
+    .hero { padding:24px 0 26px; }
+    .eyebrow { color:var(--accent); font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; margin-bottom:12px; }
+    h1 { font-size:clamp(30px,3.5vw,44px); font-weight:600; letter-spacing:-1.7px; line-height:1.15; }
+    .hero p { color:var(--muted); margin-top:14px; max-width:620px; font-size:15px; }
+    .workflow-bar { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:22px; }
+    .tabs { display:flex; padding:5px; background:#151d27; border:1px solid var(--line); border-radius:12px; gap:4px; }
+    .tab-btn { display:flex; align-items:center; justify-content:center; gap:9px; min-width:125px; padding:10px 20px; border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:13px; font-weight:650; }
+    .tab-btn.active { background:var(--accent); color:#14281d; box-shadow:0 2px 8px #0002; }
+    .tab-btn:hover:not(.active) { background:#233041; color:var(--text); }
+    .workflow-note { color:var(--muted); font-size:12px; display:flex; align-items:center; gap:8px; }
+    .panel { display:none; }
+    .panel.active { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:24px; align-items:start; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:20px; overflow:hidden; box-shadow:0 12px 40px #00000012; min-width:0; }
+    .form-section { padding:22px 28px; }
+    .form-section + .form-section { border-top:1px solid var(--line); }
+    .section-heading { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .step { display:grid; place-items:center; width:25px; height:25px; border:1px solid #415246; border-radius:8px; color:var(--accent); background:#b5f5ce08; font-family:ui-monospace,monospace; font-size:11px; }
+    h2 { font-size:16px; font-weight:650; letter-spacing:-.25px; }
+    .optional { margin-left:auto; color:var(--muted); font-size:11px; font-weight:500; padding:2px 8px; border:1px solid var(--line); border-radius:20px; }
+    label { display:block; color:#d8e2ee; font-size:12px; font-weight:600; margin-bottom:8px; }
+    .label-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+    .label-note { font-size:11px; color:var(--muted); }
+    input[type="text"],input[type="password"],textarea { width:100%; padding:13px 68px 13px 14px; background:#0e151e; border:1px solid #3a485c; border-radius:10px; color:var(--text); font-size:15px; transition:border-color .16s; }
+    input::placeholder,textarea::placeholder { color:#94a3b6; opacity:1; }
+    input:focus,textarea:focus { border-color:var(--accent); }
+    input[readonly],textarea[readonly] { opacity:.72; }
+    textarea { min-height:100px; resize:vertical; line-height:1.7; }
+    #secret,#recv-recovery-key { -webkit-text-security:disc; }
+    #secret[data-revealed="true"],#recv-recovery-key[data-revealed="true"] { -webkit-text-security:none; }
+    .input-wrap { position:relative; }
+    .toggle-vis { position:absolute; right:8px; top:6px; min-height:36px; min-width:48px; padding:6px; border:0; border-radius:7px; background:transparent; color:#bbcadb; font-size:12px; font-weight:600; }
+    .toggle-vis:hover { background:#263244; color:var(--text); }
+    .input-hint,.info { color:var(--muted); font-size:12px; line-height:1.65; }
+    .input-hint { margin-top:8px; }
+    .text-action { display:inline-flex; align-items:center; gap:7px; background:none; color:var(--accent); border:0; padding:8px 0; font-size:12px; font-weight:650; margin:3px 0 8px; }
+    .text-action:hover { color:#e0ffeb; }
+    .option-box { margin-top:17px; padding:14px; border:1px solid var(--line); border-radius:11px; background:#111923; }
+    .wallet-toggle { display:flex; align-items:center; gap:11px; margin:0; font-size:13px; cursor:pointer; }
+    input[type="checkbox"] { accent-color:var(--accent); width:17px; height:17px; flex-shrink:0; cursor:pointer; }
+    .option-note { font-size:12px; color:var(--muted); margin:5px 0 0 28px; line-height:1.55; }
+    .wallet-section { margin-top:12px; }
+    .wallet-fields { display:none; padding-top:14px; margin-top:14px; border-top:1px solid var(--line); }
+    .wallet-fields.active { display:block; }
+    .wallet-address { font-family:ui-monospace,monospace; font-size:11px; overflow-wrap:anywhere; color:var(--accent); margin-top:10px; }
+    .warning { background:#f2be6d0a; border:1px solid #f2be6d30; border-radius:10px; padding:12px 14px; color:var(--amber); font-size:12px; line-height:1.6; margin-top:16px; }
+    .warning:empty,.error:empty { display:none; }
+    .passphrase-strength { display:none; font-size:12px; line-height:1.6; padding:10px 12px; border-left:2px solid currentColor; margin:8px 0 12px; }
+    .passphrase-strength.weak { display:block; color:#ffb9ae; background:#ffb9ae07; }
+    .passphrase-strength.moderate { display:block; color:var(--amber); background:#f2be6d07; }
+    .passphrase-strength.strong { display:block; color:var(--accent); background:#b5f5ce07; }
+    button.primary { display:flex; justify-content:center; align-items:center; gap:10px; width:100%; min-height:48px; padding:12px 18px; color:#132a1d; background:var(--accent); border:1px solid var(--accent); border-radius:10px; font-size:14px; font-weight:750; box-shadow:0 4px 14px #0002; }
+    button.primary:hover:not(:disabled) { background:#d0ffdf; border-color:#d0ffdf; transform:translateY(-1px); }
+    button.secondary,.copy-btn,button.wallet-btn { min-height:42px; padding:10px 14px; background:#202c3a; color:#dce7f4; border:1px solid #3b4b60; border-radius:9px; font-size:12px; font-weight:600; }
+    button.secondary:hover:not(:disabled),.copy-btn:hover:not(:disabled),button.wallet-btn:hover:not(:disabled) { background:#2b3b4d; border-color:#61748d; }
+    button.wallet-btn { margin-top:12px; }
+    .form-actions { padding:22px 28px; border-top:1px solid var(--line); background:#101822; }
+    .form-actions .info { text-align:center; margin-top:10px; font-size:11px; }
+    .error { font-size:12px; color:#ffb4a6; line-height:1.6; margin-top:12px; padding:10px 12px; border:1px solid #ffb4a640; border-radius:8px; background:#ffb4a609; }
+    .transfer-preview { padding:26px; position:sticky; top:24px; }
+    .preview-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; gap:12px; }
+    .preview-top .section-heading { margin:0; }
+    .preview-status { padding:4px 9px; border-radius:20px; background:#202b37; color:var(--muted); font-size:10px; font-weight:650; text-transform:uppercase; letter-spacing:.6px; }
+    .preview-status .ready { display:none; }
+    .transfer-preview:has(#qr-output canvas) .preview-status { background:#b5f5ce12; color:var(--accent); }
+    .transfer-preview:has(#qr-output canvas) .preview-status .ready { display:inline; }
+    .transfer-preview:has(#qr-output canvas) .preview-status .waiting,.transfer-preview:has(#qr-output canvas) .preview-empty { display:none; }
+    .preview-empty { display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:330px; border:1px dashed #3b4b5e; border-radius:14px; background:radial-gradient(ellipse at center,#b5f5ce06,transparent 70%),#101822; text-align:center; padding:28px 24px; }
+    .scan-illustration { width:94px; height:94px; color:#688279; margin-bottom:25px; }
+    .preview-empty h3 { color:#d3e0ec; font-size:15px; font-weight:600; margin-bottom:7px; }
+    .preview-empty p { font-size:12px; max-width:250px; color:var(--muted); line-height:1.7; }
+    .preview-footer { display:flex; gap:10px; align-items:flex-start; margin-top:20px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.65; }
+    .preview-footer svg { margin-top:3px; color:var(--accent); }
+    #qr-output:not(:empty) { background:white; padding:12px; border-radius:14px; text-align:center; }
+    #qr-output canvas { display:block; max-width:100%; height:auto; margin:auto; image-rendering:pixelated; }
+    #qr-info { margin-top:18px; }
+    #qr-info>.info { margin-bottom:18px; }
+    .share-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:18px 0 10px; }
+    .share-row .label { color:var(--text); font-size:13px; font-weight:600; }
+    .value,#wallet-recovery-key { font-family:ui-monospace,"SF Mono",monospace; font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; user-select:all; }
+    #qr-url { max-height:150px; overflow:auto; font-size:11px; padding:12px; margin-top:10px; border:1px solid var(--line); border-radius:8px; background:#0c131d; }
+    #wallet-recovery-section { margin-bottom:18px; }
+    #wallet-recovery-key { margin:12px 0; }
+    #reveal-recovery-btn { margin-top:12px; width:100%; }
+    details summary { cursor:pointer; color:#c1cfdf; font-size:12px; padding:4px 0; }
+    details summary:hover { color:var(--accent); }
+    .technical-note { margin-top:8px; }
+    .technical-note p { margin-top:8px; }
+    .receive-intro { margin-bottom:20px; }
+    .receive-scene { padding:26px; position:sticky; top:24px; }
+    #scanner-region { overflow:hidden; border-radius:12px; }
+    #scanner-region video { display:block; width:100%; border-radius:12px; }
+    #scanner-region canvas { display:none; }
+    .receive-scene:has(#scanner-region video) .camera-empty,.receive-scene:has(#recv-result[style*="block"]) .camera-empty { display:none; }
+    .result-box { display:none; padding:20px; border:1px solid #b5f5ce40; background:#b5f5ce05; border-radius:12px; }
+    .result-box .label { color:var(--accent); font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+    .result-box .value { background:#0c131d; padding:16px; border-radius:8px; margin-bottom:14px; max-height:320px; overflow:auto; }
+    .result-box .copy-btn { margin:6px 5px 0 0; }
+    .btn-row { display:flex; gap:10px; margin-top:22px; }
+    .btn-row button { flex:1; }
+    #link-notice { padding:12px; background:#b5f5ce09; border:1px solid #b5f5ce26; border-radius:9px; margin-top:16px; color:var(--accent); }
+    #recv-recovery-section { margin-top:18px; }
+    .session-tools { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; align-items:center; padding:22px 24px; border:1px solid var(--line); border-radius:14px; margin:24px 0 28px; background:#111923; }
+    .session-heading { font-size:13px; font-weight:650; margin-bottom:5px; }
+    .session-actions { display:flex; gap:10px; }
+    #clear-btn { color:#ffcabf; border-color:#664840; background:#ffb4a606; }
+    #clear-btn:hover { background:#ffb4a611; }
+    .site-footer { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:32px; padding:0 0 35px; }
+    .footer-note { font-size:11px; color:var(--muted); line-height:1.7; }
+    .integrity-details { padding:12px 16px; border:1px solid var(--line); border-radius:11px; align-self:start; }
+    .integrity-details summary { font-size:12px; font-weight:600; }
+    .integrity-details p { color:var(--muted); font-size:11px; margin-top:12px; line-height:1.7; }
+    .integrity-details code { display:block; font-size:10px; overflow-wrap:anywhere; margin-top:8px; color:#cedbea; }
+    #verify-scanner-btn { width:100%; margin-top:14px; }
+    @media(max-width:850px) {
+      .site-header { padding:22px 24px; }
+      main { padding:0 24px; }
+      .panel.active { grid-template-columns:minmax(0,1fr) minmax(0,.9fr); gap:16px; }
+      .form-section { padding:22px; }
+      .form-actions { padding:20px 22px; }
+      .transfer-preview,.receive-scene { padding:20px; }
+      .session-tools { grid-template-columns:1fr; gap:16px; }
     }
-
-    .tab-btn {
-      padding: 0.6rem 2rem; background: #161b22; color: #8b949e;
-      border: none; cursor: pointer; font-size: 0.95rem;
-      font-weight: 500; transition: all 0.2s;
+    @media(max-width:680px) {
+      .site-header { padding:18px 18px; }
+      .brand { font-size:15px; gap:9px; }
+      .brand-mark { width:33px; height:33px; }
+      .local-note { font-size:0; gap:0; }
+      main { padding:0 16px; }
+      .hero { padding:24px 2px; }
+      h1 { font-size:32px; letter-spacing:-1.2px; max-width:340px; }
+      .hero p { font-size:14px; }
+      .workflow-bar { display:block; margin-bottom:16px; }
+      .workflow-note { display:none; }
+      .tabs { width:100%; }
+      .tab-btn { flex:1; }
+      .panel.active { grid-template-columns:minmax(0,1fr); gap:18px; }
+      .transfer-preview,.receive-scene { position:static; }
+      .form-section { padding:22px 20px; }
+      .form-actions { padding:20px; }
+      .preview-empty { min-height:250px; }
+      .session-tools { padding:18px; }
+      .session-actions { display:grid; grid-template-columns:1fr 1fr; }
+      .session-actions button { padding:10px; }
+      .site-footer { grid-template-columns:1fr; gap:20px; }
+      input[type="text"],input[type="password"],textarea { font-size:16px; }
     }
-    .tab-btn.active { background: #238636; color: #fff; }
-    .tab-btn:hover:not(.active) { background: #1c2129; color: #c9d1d9; }
-
-    .panel { display: none; width: 100%; max-width: 480px; padding: 0 1rem 2rem; }
-    .panel.active { display: block; }
-
-    .card {
-      background: #161b22; border: 1px solid #30363d;
-      border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem;
-    }
-
-    label {
-      display: block; font-size: 0.8rem; color: #8b949e;
-      margin-bottom: 0.4rem; font-weight: 500;
-      text-transform: uppercase; letter-spacing: 0.5px;
-    }
-
-    input[type="text"], input[type="password"], textarea {
-      width: 100%; padding: 0.65rem 0.8rem; background: #0d1117;
-      border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8;
-      font-size: 0.95rem; font-family: inherit; margin-bottom: 1rem;
-      transition: border-color 0.2s;
-    }
-    #secret, #recv-recovery-key { -webkit-text-security: disc; }
-    #secret[data-revealed="true"], #recv-recovery-key[data-revealed="true"] { -webkit-text-security: none; }
-
-    input:focus, textarea:focus { outline: none; border-color: #238636; }
-    textarea { resize: vertical; min-height: 80px; }
-
-    button.primary {
-      width: 100%; padding: 0.7rem; background: #238636; color: #fff;
-      border: none; border-radius: 6px; font-size: 0.95rem;
-      font-weight: 500; cursor: pointer; transition: background 0.2s;
-    }
-    button.primary:hover { background: #2ea043; }
-    button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    button.secondary {
-      width: 100%; padding: 0.7rem; background: #21262d; color: #c9d1d9;
-      border: 1px solid #30363d; border-radius: 6px; font-size: 0.95rem;
-      font-weight: 500; cursor: pointer; transition: background 0.2s;
-    }
-    button.secondary:hover { background: #30363d; }
-
-    #qr-output { text-align: center; margin-top: 1rem; }
-    #qr-output canvas { border-radius: 8px; max-width: 100%; image-rendering: pixelated; }
-
-    #scanner-region { width: 100%; border-radius: 8px; overflow: hidden; position: relative; }
-    #scanner-region video { width: 100%; border-radius: 8px; display: block; }
-    #scanner-region canvas { display: none; }
-
-    .result-box {
-      display: none; margin-top: 1rem; padding: 1rem; background: #0d1117;
-      border: 1px solid #238636; border-radius: 8px; word-break: break-all;
-    }
-    .result-box .label {
-      font-size: 0.75rem; color: #238636; text-transform: uppercase;
-      letter-spacing: 0.5px; margin-bottom: 0.4rem;
-    }
-    .result-box .value {
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 0.95rem; color: #f0f0f0; user-select: all; white-space: pre-wrap;
-    }
-
-    .copy-btn {
-      margin-top: 0.6rem; padding: 0.4rem 0.8rem; background: #21262d;
-      color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px;
-      font-size: 0.8rem; cursor: pointer;
-    }
-    .copy-btn:hover { background: #30363d; }
-
-    .error { color: #f85149; font-size: 0.85rem; margin-top: 0.5rem; }
-    .info { color: #8b949e; font-size: 0.8rem; margin-top: 0.5rem; text-align: center; }
-
-    .toggle-vis {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-      background: none; border: none; color: #8b949e; cursor: pointer;
-      font-size: 0.8rem; padding: 0.2rem 0.4rem;
-    }
-
-    .input-wrap { position: relative; margin-bottom: 1rem; }
-    .input-wrap input, .input-wrap textarea { margin-bottom: 0; padding-right: 3.5rem; }
-
-    .btn-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-    .btn-row button { flex: 1; }
-
-    .warning {
-      font-size: 0.8rem; color: #d29922; margin-top: 0.5rem;
-      padding: 0.5rem; background: #d299220f; border-radius: 4px;
-    }
-
-    .passphrase-strength {
-      font-size: 0.78rem; line-height: 1.4; margin-top: -0.6rem;
-      margin-bottom: 0.8rem; padding: 0.4rem 0.6rem;
-      border-radius: 4px; display: none;
-    }
-    .passphrase-strength.weak { color: #f85149; background: #f851490f; display: block; }
-    .passphrase-strength.moderate { color: #d29922; background: #d299220f; display: block; }
-    .passphrase-strength.strong { color: #3fb950; background: #3fb9500f; display: block; }
-
-    .wallet-section {
-      margin-bottom: 1rem; padding: 0.8rem;
-      background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
-    }
-    .wallet-toggle {
-      display: flex; align-items: center; gap: 0.5rem; cursor: pointer;
-      font-size: 0.85rem; color: #8b949e; text-transform: none; letter-spacing: 0;
-    }
-    .wallet-toggle input[type="checkbox"] { width: auto; margin: 0; }
-    .wallet-fields { display: none; margin-top: 0.8rem; }
-    .wallet-fields.active { display: block; }
-    .wallet-address {
-      font-family: "SF Mono", "Fira Code", monospace; font-size: 0.82rem;
-      color: #58a6ff; word-break: break-all; padding: 0.3rem 0;
-    }
-    button.wallet-btn {
-      padding: 0.5rem 0.8rem; background: #f6851b; color: #fff; border: none;
-      border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer;
-      transition: background 0.2s;
-    }
-    button.wallet-btn:hover { background: #e2761b; }
-    button.wallet-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; scroll-behavior:auto !important; } }
   </style>
 </head>
 <body hidden>
-  <header>
-    <h1>QR Secure Send</h1>
-    <p>Encrypt and transfer secrets via QR code</p>
-    <p style="font-size:0.7rem;color:#484f58;margin-top:0.2rem">v2.3.0</p>
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><path d="M15 14h6v7h-6v-3h3M3 12h9V3M12 15v6"/></svg></span>
+      QR Secure Send <span class="version">v2.3.0</span>
+    </div>
+    <div class="local-note"><span class="status-dot" aria-hidden="true"></span> Encryption stays in your browser</div>
   </header>
-
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="send">Send</button>
-    <button class="tab-btn" data-tab="receive">Receive</button>
-  </div>
-
-  <!-- SEND PANEL -->
-  <div id="send" class="panel active">
-    <div class="card">
-      <label for="secret">Secret / Password</label>
-      <div class="input-wrap">
-        <textarea id="secret" rows="3" placeholder="Enter your secret..." autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" data-revealed="false" disabled></textarea>
-        <button class="toggle-vis" data-target="secret">show</button>
-      </div>
-
-      <p class="info" style="margin-bottom:1rem">Multiline text is supported. Line endings use LF.</p>
-      <label class="wallet-toggle">
-        <input type="checkbox" id="conceal-length" checked>
-        Conceal secret length
-      </label>
-      <p class="info" style="margin-bottom:1rem">On: pad to the next size step (128, 256, 512, 1,024 or 1,536 bytes). This hides the exact length, but reveals its size range. Off: smaller QR codes that reveal the secret’s byte length.</p>
-
-      <label for="send-passphrase">Encryption Passphrase</label>
-      <div class="input-wrap">
-        <input type="password" id="send-passphrase" placeholder="Optional — recommended for sensitive secrets" autocomplete="one-time-code" spellcheck="false" autocorrect="off" autocapitalize="off">
-        <button class="toggle-vis" data-target="send-passphrase">show</button>
-      </div>
-      <button class="secondary" id="password-generate-btn" style="margin-bottom:1rem">Generate random password</button>
-      <div id="protection-notice" class="warning" role="status" style="margin-bottom:1rem"></div>
-      <div id="send-passphrase-strength" class="passphrase-strength" role="status"></div>
-      <p class="info" style="margin-bottom:1rem">A password is recommended. If you use one, share it separately from the QR code or link.</p>
-
-      <div class="wallet-section">
-        <label class="wallet-toggle">
-          <input type="checkbox" id="send-wallet-toggle">
-          Protect with my crypto wallet (MetaMask)
-        </label>
-        <div id="send-wallet-fields" class="wallet-fields">
-          <p class="info" style="text-align:left;margin-bottom:0.5rem;line-height:1.5">
-            Your wallet can protect the transfer on its own. Adding a password is recommended.
-            Without a password, anyone who obtains this transfer's signature can decrypt it.
-            You will approve the same message twice to check compatibility. Wallets that return changing or unsupported signatures are blocked.
-            Save the separate recovery key securely; keep the original secret until you have decrypted on the receiving device. The same account alone does not guarantee compatibility.
-          </p>
-          <button class="wallet-btn" id="send-wallet-connect-btn">Connect MetaMask</button>
-          <div id="send-wallet-status" class="wallet-address" style="display:none"></div>
-        </div>
-      </div>
-
-      <button class="primary" id="generate-btn">Generate QR Code</button>
-      <div id="send-error" class="error"></div>
+  <main>
+    <section class="hero" aria-labelledby="app-title">
+      <div class="eyebrow">A direct handoff between devices</div>
+      <h1 id="app-title">A simpler way to pass a secret.</h1>
+      <p>Turn sensitive text into a QR code. Scan it on your other device, unlock it, and clear your session.</p>
+    </section>
+    <div class="workflow-bar">
+      <nav class="tabs" aria-label="Transfer direction">
+        <button class="tab-btn active" data-tab="send" aria-controls="send" aria-pressed="true"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M7 7h10v10"/></svg> Send</button>
+        <button class="tab-btn" data-tab="receive" aria-controls="receive" aria-pressed="false"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m17 7-10 10M7 7v10h10"/></svg> Receive</button>
+      </nav>
+      <div class="workflow-note"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> No account needed · No library downloads</div>
     </div>
 
-    <div id="qr-output"></div>
-    <div id="qr-info" style="display:none">
-      <p class="info">Show this QR code to the receiving device's camera, or share the link below. Keep your original secret until the receiving device decrypts it successfully.</p>
-      <div id="wallet-recovery-section" class="warning" style="display:none">
-        <p>Save this transfer's recovery key securely, separately from the QR/link. It replaces the wallet if signing stops working. Any password you set is still required. Without a password, this key and the QR/link unlock the secret.</p>
-        <div id="wallet-recovery-key" hidden style="overflow-wrap:anywhere;user-select:all"></div>
-        <button class="secondary" id="reveal-recovery-btn">Reveal recovery key</button>
-      </div>
-      <div class="result-box" style="display:block;margin-top:0.8rem">
-        <div class="label">Shareable Link</div>
-        <div class="value" id="qr-url" style="font-size:0.8rem;word-break:break-all;user-select:all"></div>
-        <button class="copy-btn" id="copy-url-btn">Copy link</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- RECEIVE PANEL -->
-  <div id="receive" class="panel">
-    <div class="card">
-      <label for="recv-passphrase">Decryption Passphrase</label>
-      <div class="input-wrap">
-        <input type="password" id="recv-passphrase" placeholder="Passphrase (leave empty if none was set)..." autocomplete="one-time-code" spellcheck="false" autocorrect="off" autocapitalize="off">
-        <button class="toggle-vis" data-target="recv-passphrase">show</button>
-      </div>
-      <div id="recv-wallet-section" class="wallet-section" style="display:none">
-        <p style="font-size:0.82rem;color:#d29922;margin-bottom:0.5rem;">
-          Wallet-protected transfer. Approve signing only in your trusted copy of this app.
-        </p>
-        <button class="wallet-btn" id="recv-wallet-connect-btn">Connect MetaMask</button>
-        <div id="recv-wallet-status" class="wallet-address" style="display:none"></div>
-        <div id="recv-recovery-section" style="display:none">
-          <label for="recv-recovery-key">Recovery key (instead of wallet)</label>
+    <section id="send" class="panel active" aria-label="Send a secret">
+      <div class="card">
+        <div class="form-section">
+          <div class="section-heading"><span class="step" aria-hidden="true">01</span><h2>Your secret</h2></div>
+          <div class="label-row"><label for="secret">What would you like to transfer?</label><span class="label-note">Text only</span></div>
           <div class="input-wrap">
-            <input type="text" id="recv-recovery-key" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" data-revealed="false" disabled>
-            <button class="toggle-vis" data-target="recv-recovery-key">show</button>
+            <textarea id="secret" rows="3" placeholder="Type or paste your secret here…" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" data-revealed="false" aria-describedby="secret-hint" disabled></textarea>
+            <button class="toggle-vis" data-target="secret" aria-label="Show secret" aria-pressed="false">show</button>
           </div>
+          <p class="input-hint" id="secret-hint">Hidden as you type. Up to 1,500 bytes, including line breaks.</p>
+          <details class="technical-note"><summary>About multiline text</summary><p class="info">Line breaks are preserved. Windows-style line endings are converted to LF.</p></details>
+        </div>
+        <div class="form-section">
+          <div class="section-heading"><span class="step" aria-hidden="true">02</span><h2>Choose your protection</h2><span class="optional">Optional</span></div>
+          <label for="send-passphrase">Encryption password <span class="label-note">— recommended</span></label>
+          <div class="input-wrap">
+            <input type="password" id="send-passphrase" placeholder="Add a password" autocomplete="one-time-code" spellcheck="false" autocorrect="off" autocapitalize="off" aria-describedby="password-hint send-passphrase-strength">
+            <button class="toggle-vis" data-target="send-passphrase" aria-label="Show encryption password" aria-pressed="false">show</button>
+          </div>
+          <button class="text-action" id="password-generate-btn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m15 4 5 5L7 22l-5-5L15 4ZM3 3l1 3m16 8 3 1M10 1l1 3M4 10l-3 1"/></svg> Generate random password</button>
+          <div id="send-passphrase-strength" class="passphrase-strength" role="status"></div>
+          <p class="input-hint" id="password-hint">Save your password and share it separately from the QR code.</p>
+          <div class="option-box">
+            <label class="wallet-toggle"><input type="checkbox" id="conceal-length" checked aria-describedby="length-hint"> Conceal secret length</label>
+            <p class="option-note" id="length-hint">Hide the exact length with a slightly larger QR.</p>
+            <details class="technical-note"><summary>How size concealment works</summary><p class="info">Pads to 128, 256, 512, 1,024 or 1,536 bytes. The size range remains visible. Turn this off for a smaller QR that reveals the secret’s byte length.</p></details>
+          </div>
+          <div class="wallet-section option-box">
+            <label class="wallet-toggle"><input type="checkbox" id="send-wallet-toggle"> Add wallet protection</label>
+            <p class="option-note">Use your MetaMask-connected account.</p>
+            <div id="send-wallet-fields" class="wallet-fields">
+              <p class="info">You’ll approve the same message twice to check compatibility. A password is still recommended: anyone with this transfer’s signature can unlock a wallet-only transfer.</p>
+              <p class="input-hint">Save the separate recovery key. Keep the original secret until the receiving device decrypts it; the same account does not guarantee compatibility.</p>
+              <button class="wallet-btn" id="send-wallet-connect-btn">Connect MetaMask</button>
+              <div id="send-wallet-status" class="wallet-address" style="display:none"></div>
+            </div>
+          </div>
+          <div id="protection-notice" class="warning" role="status"></div>
+        </div>
+        <div class="form-actions">
+          <button class="primary" id="generate-btn">Generate QR code <span aria-hidden="true">↗</span></button>
+          <p class="info">Your secret clears from this field after encryption.</p>
+          <div id="send-error" class="error" role="alert"></div>
         </div>
       </div>
+      <aside class="card transfer-preview" aria-label="Transfer preview">
+        <div class="preview-top"><div class="section-heading"><span class="step" aria-hidden="true">03</span><h2>Your transfer</h2></div><span class="preview-status" aria-hidden="true"><span class="waiting">Not generated</span><span class="ready">Ready to scan</span></span></div>
+        <div class="preview-empty">
+          <svg class="scan-illustration" aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2"><path d="M29 10H16a6 6 0 0 0-6 6v13M71 10h13a6 6 0 0 1 6 6v13M10 71v13a6 6 0 0 0 6 6h13M71 90h13a6 6 0 0 0 6-6V71"/><rect x="32" y="43" width="36" height="29" rx="6" fill="#b5f5ce08"/><path d="M39 43v-9a11 11 0 0 1 22 0v9M50 54v7"/></svg>
+          <h3>A secret, ready for its next device.</h3><p>Your QR code will appear here after you add a secret and generate a transfer.</p>
+        </div>
+        <div id="qr-output" aria-label="Generated QR code"></div>
+        <div id="qr-info" style="display:none">
+          <p class="info">Scan with your receiving device. Confirm it decrypts successfully before deleting your original secret.</p>
+          <div id="wallet-recovery-section" class="warning" style="display:none">
+            <p>Save this recovery key separately from the QR/link. It replaces the wallet; any password is still required. Without a password, this key and the QR/link unlock the secret.</p>
+            <div id="wallet-recovery-key" hidden></div>
+            <button class="secondary" id="reveal-recovery-btn">Reveal recovery key</button>
+          </div>
+          <div class="share-row"><div class="label">Or share a link</div><button class="copy-btn" id="copy-url-btn">Copy link</button></div>
+          <details><summary>View transfer link</summary><div class="value" id="qr-url"></div></details>
+        </div>
+        <div class="preview-footer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg><p>A captured QR does not expire when you clear this screen. Use a password for sensitive transfers.</p></div>
+      </aside>
+    </section>
 
-      <div class="btn-row">
-        <button class="primary" id="scan-btn">Start Camera</button>
-        <button class="secondary" id="stop-btn" style="display:none">Stop</button>
-        <button class="primary" id="decrypt-btn" style="display:none">Decrypt</button>
+    <section id="receive" class="panel" aria-label="Receive a secret">
+      <div class="card">
+        <div class="form-section">
+          <div class="section-heading"><span class="step" aria-hidden="true">01</span><h2>Receive a transfer</h2></div>
+          <p class="info receive-intro">Scan a QR from the sending device, or open its transfer link in your trusted copy of this app.</p>
+          <label for="recv-passphrase">Decryption password</label>
+          <div class="input-wrap">
+            <input type="password" id="recv-passphrase" placeholder="Enter the sender’s password" autocomplete="one-time-code" spellcheck="false" autocorrect="off" autocapitalize="off" aria-describedby="receive-password-hint">
+            <button class="toggle-vis" data-target="recv-passphrase" aria-label="Show decryption password" aria-pressed="false">show</button>
+          </div>
+          <p class="input-hint" id="receive-password-hint">Leave this empty if the sender didn’t set a password.</p>
+          <div id="recv-wallet-section" class="wallet-section option-box" style="display:none">
+            <p class="info">This transfer uses wallet protection. Approve signing only in your trusted copy.</p>
+            <button class="wallet-btn" id="recv-wallet-connect-btn">Connect MetaMask</button>
+            <div id="recv-wallet-status" class="wallet-address" style="display:none"></div>
+            <div id="recv-recovery-section" style="display:none">
+              <label for="recv-recovery-key">Recovery key <span class="label-note">— instead of a wallet</span></label>
+              <div class="input-wrap"><input type="text" id="recv-recovery-key" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" data-revealed="false" disabled><button class="toggle-vis" data-target="recv-recovery-key" aria-label="Show recovery key" aria-pressed="false">show</button></div>
+            </div>
+          </div>
+          <div id="link-notice" class="info" style="display:none">Transfer received. Enter its password if one was set, then decrypt.</div>
+          <div class="btn-row"><button class="primary" id="scan-btn">Start camera</button><button class="secondary" id="stop-btn" style="display:none">Stop camera</button><button class="primary" id="decrypt-btn" style="display:none">Decrypt secret</button></div>
+          <div id="legacy-warning" class="warning" style="display:none"></div>
+          <div id="recv-error" class="error" role="alert"></div>
+          <div id="compat-warning" class="input-hint" style="display:none"></div>
+        </div>
       </div>
-      <div id="legacy-warning" class="warning" style="display:none"></div>
-      <div id="link-notice" class="info" style="display:none">Encrypted data received via link. Enter the passphrase and click Decrypt.</div>
-      <div id="recv-error" class="error"></div>
-      <div id="compat-warning" class="warning" style="display:none"></div>
-    </div>
+      <aside class="card receive-scene" aria-label="Camera and decrypted result">
+        <div class="section-heading"><span class="step" aria-hidden="true">02</span><h2>Scan &amp; unlock</h2></div>
+        <div class="preview-empty camera-empty"><svg class="scan-illustration" aria-hidden="true" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2"><path d="M28 10H16a6 6 0 0 0-6 6v12M72 10h12a6 6 0 0 1 6 6v12M10 72v12a6 6 0 0 0 6 6h12M72 90h12a6 6 0 0 0 6-6V72"/><rect x="24" y="34" width="52" height="36" rx="7"/><path d="m36 34 5-8h18l5 8"/><circle cx="50" cy="52" r="10"/></svg><h3 id="receive-preview-title">Bring your devices together.</h3><p id="receive-preview-hint">Start the camera and point it at the QR. Your decrypted secret stays hidden until you reveal it.</p></div>
+        <div id="scanner-region"></div>
+        <div id="recv-result" class="result-box"><div class="label">Decrypted secret</div><div class="value" id="recv-value" hidden></div><button class="copy-btn" id="reveal-btn">Reveal secret</button><button class="copy-btn" id="copy-btn">Copy to clipboard</button></div>
+        <div class="preview-footer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><p>Scanning never approves a wallet signature. Decryption is a separate action you control.</p></div>
+      </aside>
+    </section>
 
-    <div id="scanner-region"></div>
-
-    <div id="recv-result" class="result-box">
-      <div class="label">Decrypted Secret</div>
-      <div class="value" id="recv-value" hidden></div>
-      <button class="copy-btn" id="reveal-btn">Reveal secret</button>
-      <button class="copy-btn" id="copy-btn">Copy to clipboard</button>
-
-    </div>
-  </div>
-
-  <div style="width:100%;max-width:480px;padding:0 1rem 2rem">
-    <button class="secondary" id="clear-btn">Clear secrets and reset</button>
-    <button class="secondary" id="clear-clipboard-btn" style="margin-top:0.5rem">Clear clipboard</button>
-    <p class="info" id="clipboard-status" role="status">Clipboard history and device sync may retain copied secrets.</p>
-    <p class="info" id="session-status" role="status">Secrets clear after 2 minutes without activity or 30 seconds in the background. If the browser suspends the page, expired secrets clear when it resumes.</p>
-    <details style="margin-top:1rem;font-size:0.82rem;line-height:1.5">
-      <summary>Scanner integrity</summary>
-      <p>Bundled scanner: <strong>jsQR 1.4.0</strong> (Apache 2.0).</p>
-      <p>Original CDN file (included locally; not downloaded at runtime):</p>
-      <code style="display:block;overflow-wrap:anywhere">https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js</code>
-      <p id="scanner-integrity-status" role="status">Bundled locally — no integrity check has run yet.</p>
-      <p>Original CDN file's SHA-384 integrity fingerprint:</p>
-      <code id="scanner-fingerprint" style="display:block;overflow-wrap:anywhere"></code>
-      <button class="secondary" id="verify-scanner-btn" style="margin-top:0.5rem">Verify bundled scanner</button>
-      <p>This is a content fingerprint, not a publisher's digital signature. A match means the bundled scanner matches the saved fingerprint. It does not certify that the code is safe, or protect against a modified copy of this app.</p>
-    </details>
-    <p class="info" style="margin-top:1rem">Encryption and decryption happen in this browser. The scanner is included in this file and works offline; no library downloads are needed. QR links open the hosted app; use a trusted copy to receive sensitive transfers.</p>
-  </div>
+    <section class="session-tools" aria-label="Session controls">
+      <div><div class="session-heading">Finished transferring?</div><p class="info" id="session-status" role="status">Secrets clear after 2 minutes without activity or 30 seconds in the background. Suspended pages clear expired secrets when they resume.</p></div>
+      <div class="session-actions"><button class="secondary" id="clear-btn">Clear secrets &amp; reset</button><button class="secondary" id="clear-clipboard-btn">Clear clipboard</button></div>
+    </section>
+    <footer class="site-footer">
+      <div><p class="footer-note" id="clipboard-status" role="status">Clipboard history and device sync may retain copied secrets.</p><p class="footer-note" style="margin-top:10px">Encryption happens in this browser. The scanner is bundled and works offline. QR links open the hosted app; use a trusted copy to receive sensitive transfers.</p></div>
+      <details class="integrity-details"><summary>Scanner integrity &amp; source</summary>
+        <p>Bundled scanner: <strong>jsQR 1.4.0</strong> · Apache 2.0</p>
+        <p>Original CDN file, included locally. Nothing is downloaded at runtime:</p><code>https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js</code>
+        <p id="scanner-integrity-status" role="status">Bundled locally — no integrity check has run yet.</p>
+        <p>Original CDN file’s SHA-384 integrity fingerprint:</p><code id="scanner-fingerprint"></code>
+        <button class="secondary" id="verify-scanner-btn">Verify bundled scanner</button>
+        <p>This is a content fingerprint, not a publisher’s digital signature. A match verifies the saved fingerprint; it does not certify safety or protect against a modified copy of this app.</p>
+      </details>
+    </footer>
+  </main>
 
   <script>
   // Stay hidden until initialization succeeds. Sandboxed frames with scripts
@@ -11663,6 +11683,22 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     for (const id of ['generate-btn', 'decrypt-btn', 'scan-btn', 'password-generate-btn',
       'send-wallet-connect-btn', 'recv-wallet-connect-btn', 'send-wallet-toggle', 'conceal-length']) $(id).disabled = value;
     for (const id of ['secret', 'send-passphrase', 'recv-passphrase', 'recv-recovery-key']) $(id).readOnly = value;
+    $('generate-btn').textContent = value ? 'Working…' : 'Generate QR code ↗';
+    $('decrypt-btn').textContent = value ? 'Working…' : 'Decrypt secret';
+    for (const id of ['generate-btn', 'decrypt-btn']) $(id).setAttribute('aria-busy', String(value));
+  }
+
+  function updateVisibilityButton(button, revealed) {
+    const names = { secret: 'secret', 'send-passphrase': 'encryption password', 'recv-passphrase': 'decryption password', 'recv-recovery-key': 'recovery key' };
+    button.textContent = revealed ? 'hide' : 'show';
+    button.setAttribute('aria-pressed', String(revealed));
+    button.setAttribute('aria-label', (revealed ? 'Hide ' : 'Show ') + names[button.dataset.target]);
+  }
+
+  function bringResultIntoView(element) {
+    if (window.matchMedia?.('(max-width: 680px)')?.matches) {
+      element.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+    }
   }
 
   function discardOutgoing() {
@@ -11690,7 +11726,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     $('wallet-recovery-key').hidden = true;
     $('reveal-recovery-btn').textContent = 'Reveal recovery key';
     for (const input of ['send-passphrase', 'recv-passphrase']) $(input).type = 'password';
-    document.querySelectorAll('.toggle-vis').forEach(btn => { btn.textContent = 'show'; });
+    document.querySelectorAll('.toggle-vis').forEach(btn => updateVisibilityButton(btn, false));
   }
 
   function deadlineAfter(ms) {
@@ -11770,6 +11806,10 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
   }
 
   function refreshReceiveControls() {
+    $('receive-preview-title').textContent = incomingPayload ? 'Ready to unlock.' : 'Bring your devices together.';
+    $('receive-preview-hint').textContent = incomingPayload
+      ? 'Your transfer is loaded. Enter its password if one was set, then choose Decrypt secret.'
+      : 'Start the camera and point it at the QR. Your decrypted secret stays hidden until you reveal it.';
     $('decrypt-btn').style.display = incomingPayload ? 'inline-block' : 'none';
     $('scan-btn').style.display = incomingPayload ? 'none' : 'block';
     $('stop-btn').style.display = 'none';
@@ -11822,7 +11862,10 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
   function selectTab(name, clear = true) {
     expireSessionIfNeeded();
     if (clear) clearSession('Sensitive fields cleared when switching tabs.', true);
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === name);
+      btn.setAttribute('aria-pressed', String(btn.dataset.tab === name));
+    });
     document.querySelectorAll('.panel').forEach(panel => panel.classList.toggle('active', panel.id === name));
   }
 
@@ -11832,10 +11875,10 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     const input = $(btn.dataset.target);
     if (input.id === 'secret' || input.id === 'recv-recovery-key') {
       input.dataset.revealed = input.dataset.revealed === 'true' ? 'false' : 'true';
-      btn.textContent = input.dataset.revealed === 'true' ? 'hide' : 'show';
+      updateVisibilityButton(btn, input.dataset.revealed === 'true');
     } else {
       input.type = input.type === 'password' ? 'text' : 'password';
-      btn.textContent = input.type === 'password' ? 'show' : 'hide';
+      updateVisibilityButton(btn, input.type !== 'password');
     }
   }));
   $('reveal-btn').addEventListener('click', () => {
@@ -11879,7 +11922,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     const generated = generatedPassword !== null && passphrase === generatedPassword;
     const result = generated ? { level: 'strong', message: 'Generated randomly in this browser: 144 random bits. Share it separately and save it before leaving this tab.' }
       : evaluatePassphraseStrength(passphrase);
-    $('send-passphrase-strength').className = 'passphrase-strength ' + (result.level === 'none' ? 'weak' : result.level);
+    $('send-passphrase-strength').className = 'passphrase-strength ' + result.level;
     $('send-passphrase-strength').textContent = result.message;
     updateProtectionNotice();
   }
@@ -11991,6 +12034,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       hideSecret();
       $('session-status').textContent = 'QR ready. Confirm decryption on the receiving device before deleting your original secret.';
       armIdleTimer();
+      bringResultIntoView($('qr-output'));
     } catch (error) {
       if (sessionIsCurrent(epoch)) $('send-error').textContent = 'Could not generate transfer: ' + error.message;
     } finally { if (sessionIsCurrent(epoch)) setBusy(false); }
@@ -12015,9 +12059,11 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       if (!sessionIsCurrent(epoch)) return;
       $('recv-value').textContent = secret;
       $('recv-result').style.display = 'block';
+      $('link-notice').textContent = 'Secret unlocked. Reveal or copy it, then clear your session when finished.';
       $('recv-passphrase').value = '';
       $('recv-recovery-key').value = '';
       armIdleTimer();
+      bringResultIntoView($('recv-result'));
     } catch (_) {
       if (sessionIsCurrent(epoch)) $('recv-error').textContent = 'Decryption failed. Check the password, wallet or recovery key, and transfer data.';
     } finally { if (sessionIsCurrent(epoch)) setBusy(false); }
