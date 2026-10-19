@@ -1,6 +1,6 @@
 {
   "name": "qr-secure-send",
-  "version": "1.8.1",
+  "version": "2.3.0",
   "description": "Encrypt and transfer secrets via QR code",
   "keywords": [
     "qr",
@@ -21,9 +21,11 @@
   },
   "scripts": {
     "start": "node cli.js",
-    "test": "jest --verbose"
+    "test": "node --test test.js security*.test.js",
+    "test:browser": "node --test browser-security.test.cjs",
+    "csp:update": "node scripts/update-csp.js"
   },
-  "devDependencies": {
-    "jest": "^29.7.0"
+  "engines": {
+    "node": ">=22"
   }
 }
