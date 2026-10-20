@@ -165,6 +165,7 @@ describe('evaluatePassphraseStrength', () => {
     assert.equal(result.score, 4);
     assert.equal(result.bits, undefined);
     assert.match(result.message, /estimated/);
+    assert.match(result.message, /4\/5/);
   });
   test('explains offline guessing', () => {
     assert.match(evaluatePassphraseStrength('abc').message, /no rate-limiting/);

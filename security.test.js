@@ -85,9 +85,9 @@ test('wallet-only UI transfers use a versioned signing message and decrypt witho
 test('generated passwords use secure randomness; typed strings do not get entropy claims', async () => {
   const a = app();
   const one = a.context.generatePassword(), two = a.context.generatePassword();
-  assert.match(one, /^[A-Za-z0-9_-]{24}$/); assert.notEqual(one, two);
+  assert.match(one, /^[!-~]{32}$/); assert.notEqual(one, two);
   await a.click('password-generate-btn');
-  assert.match(a.el('send-passphrase-strength').textContent, /144 random bits/);
+  assert.match(a.el('send-passphrase-strength').textContent, /5\/5.*32 random characters/);
   a.el('send-passphrase').value = 'Password1!';
   a.el('send-passphrase').handlers.input();
   assert.match(a.el('send-passphrase-strength').textContent, /Weak/);

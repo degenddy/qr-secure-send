@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-JqAikhtVp+f04xAg6z3+ac5Ny6JKT48Ky6dFUsLoAGw='; style-src 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-vMyOllwX5MnAd6QPpQoMvyl+apLRa9si4LFo0ELdYns='; style-src 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -79,9 +79,8 @@
     .warning { background:#f2be6d0a; border:1px solid #f2be6d30; border-radius:10px; padding:12px 14px; color:var(--amber); font-size:12px; line-height:1.6; margin-top:16px; }
     .warning:empty,.error:empty { display:none; }
     .passphrase-strength { display:none; font-size:12px; line-height:1.6; padding:10px 12px; border-left:2px solid currentColor; margin:8px 0 12px; }
-    .passphrase-strength.weak { display:block; color:#ffb9ae; background:#ffb9ae07; }
-    .passphrase-strength.moderate { display:block; color:var(--amber); background:#f2be6d07; }
-    .passphrase-strength.strong { display:block; color:var(--accent); background:#b5f5ce07; }
+    .passphrase-strength.manual { display:block; color:#ffc078; background:#ffc0780a; }
+    .passphrase-strength.generated { display:block; color:var(--accent); background:#b5f5ce07; }
     button.primary { display:flex; justify-content:center; align-items:center; gap:10px; width:100%; min-height:48px; padding:12px 18px; color:#132a1d; background:var(--accent); border:1px solid var(--accent); border-radius:10px; font-size:14px; font-weight:750; box-shadow:0 4px 14px #0002; }
     button.primary:hover:not(:disabled) { background:#d0ffdf; border-color:#d0ffdf; transform:translateY(-1px); }
     button.secondary,.copy-btn,button.wallet-btn { min-height:42px; padding:10px 14px; background:#202c3a; color:#dce7f4; border:1px solid #3b4b60; border-radius:9px; font-size:12px; font-weight:600; }
@@ -11551,16 +11550,29 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     return {
       level: result.score < 2 ? 'weak' : result.score < 3 ? 'moderate' : 'strong',
       score: result.score,
-      message: labels[result.score] + ' (' + result.score + '/4, estimated). ' +
+      message: 'Manual password: ' + labels[result.score] + ' (' + result.score + '/5, estimated). ' +
         (passphrase.length > 100 ? 'First 100 characters assessed; the full password is used for encryption. ' : '') +
         feedback + ' ' + BRUTE_FORCE_NOTE
     };
   }
 
   function generatePassword() {
-    // 18 uniform random bytes encode as 24 base64url characters: 144 random bits.
-    return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(18))))
-      .replace(/\+/g, '-').replace(/\//g, '_');
+    // Sample printable ASCII uniformly: accept only a multiple of 94 byte values.
+    // Retry whole candidates to require every character class without fixed positions.
+    const random = new Uint8Array(64);
+    while (true) {
+      let password = '';
+      while (password.length < 32) {
+        crypto.getRandomValues(random);
+        for (const byte of random) {
+          if (byte >= 188) continue;
+          password += String.fromCharCode(33 + byte % 94);
+          if (password.length === 32) break;
+        }
+      }
+      if (/[a-z]/.test(password) && /[A-Z]/.test(password) &&
+          /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) return password;
+    }
   }
 
   const APP_VERSION = "2.3.0";
@@ -11925,9 +11937,11 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
   function updatePasswordFeedback() {
     const passphrase = $('send-passphrase').value;
     const generated = generatedPassword !== null && passphrase === generatedPassword;
-    const result = generated ? { level: 'strong', message: 'Generated randomly in this browser: 144 random bits. Share it separately and save it before leaving this tab.' }
+    // Uniform 32-character printable-ASCII passwords containing all four classes
+    // have log2(N) ≈ 209.71 bits; N / (2 × 10^12 × seconds/year) ≈ 2.13 × 10^43.
+    const result = generated ? { level: 'strong', message: 'Generated password (5/5): 32 random characters, about 210 bits of entropy. Extremely resistant to brute-force guessing: about 2.13 × 10⁴³ years on average at a hypothetical 1 trillion complete guesses per second. This is a mathematical illustration, not a measured cracking time; it does not protect against password theft. Share it separately and save it before leaving this tab.' }
       : evaluatePassphraseStrength(passphrase);
-    $('send-passphrase-strength').className = 'passphrase-strength ' + result.level;
+    $('send-passphrase-strength').className = 'passphrase-strength ' + (generated ? 'generated' : passphrase ? 'manual' : 'none');
     $('send-passphrase-strength').textContent = result.message;
     updateProtectionNotice();
   }

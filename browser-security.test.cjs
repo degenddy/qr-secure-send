@@ -52,6 +52,52 @@ test('browser: masked secret and revealed passphrases keep their input privacy s
   assert.equal(await page.locator('#send-passphrase').getAttribute('type'), 'password');
 });
 
+test('browser: only an unedited generated password receives green 5/5 feedback', async () => {
+  await page.goto(base);
+  const input=page.locator('#send-passphrase'),feedback=page.locator('#send-passphrase-strength');
+  for (const password of ['Password1!', 'Mango orchard beside the violet river']) {
+    await input.fill(password);
+    assert.equal(await feedback.evaluate(el=>getComputedStyle(el).color),'rgb(255, 192, 120)');
+    assert.match(await feedback.textContent(),/[0-4]\/5, estimated/);
+    assert.doesNotMatch(await feedback.textContent(),/5\/5|bits of entropy|guesses per second/);
+  }
+  assert.match(await feedback.textContent(),/4\/5/);
+  await page.locator('#password-generate-btn').click();
+  const generated=await input.inputValue();
+  assert.match(generated,/^[!-~]{32}$/);
+  for(const pattern of [/[a-z]/,/[A-Z]/,/[0-9]/,/[^A-Za-z0-9]/])assert.match(generated,pattern);
+  assert.match(await feedback.textContent(),/5\/5.*32 random characters/);
+  assert.match(await feedback.textContent(),/about 210 bits of entropy/);
+  assert.match(await feedback.textContent(),/2\.13 × 10⁴³ years on average at a hypothetical 1 trillion complete guesses per second/);
+  assert.equal(await feedback.evaluate(el=>getComputedStyle(el).color),'rgb(181, 245, 206)');
+  // Editing, then pasting the exact original value must not recover provenance.
+  await input.fill(generated+'x');await input.fill(generated);
+  assert.equal(await feedback.evaluate(el=>getComputedStyle(el).color),'rgb(255, 192, 120)');
+  assert.match(await feedback.textContent(),/[0-4]\/5/);
+  assert.doesNotMatch(await feedback.textContent(),/5\/5|bits of entropy|guesses per second/);
+  await page.locator('#password-generate-btn').click();
+  assert.match(await feedback.textContent(),/5\/5/);
+  await page.locator('#clear-btn').click();
+  await input.fill(generated);
+  assert.equal(await feedback.evaluate(el=>getComputedStyle(el).color),'rgb(255, 192, 120)');
+  await input.fill('');
+  assert.equal(await feedback.isVisible(),false);
+});
+
+test('browser: a generated password with numbers and symbols unlocks the full transfer', async () => {
+  await page.goto(base);
+  await page.locator('#password-generate-btn').click();
+  const password=await page.locator('#send-passphrase').inputValue();
+  await page.locator('#secret').fill('DUMMY_GENERATED_PASSWORD_TRANSFER');
+  await page.locator('#generate-btn').click();await page.locator('#qr-info').waitFor();
+  const link=await page.locator('#qr-url').textContent();
+  await page.goto(base+'/?receiver=1'+new URL(link).hash);
+  await page.locator('#recv-passphrase').fill(password);
+  await page.locator('#decrypt-btn').click();await page.locator('#recv-result').waitFor();
+  assert.equal(await page.locator('#recv-value').textContent(),'DUMMY_GENERATED_PASSWORD_TRANSFER');
+  assert.equal(await page.locator('#recv-value').isVisible(),false);
+});
+
 test('browser: declined replacement preserves input; accepted replacement decrypts', async () => {
   await page.goto(base); await page.locator('#secret').fill('DUMMY_CURRENT_SECRET');
   page.once('dialog', dialog => dialog.dismiss());

@@ -79,15 +79,40 @@ test('cryptographic randomness supplies salt and IV separately', async () => {
   await instrumented.context.encryptSecret('randomness', pass);
   assert.deepEqual(lengths, [128 - Buffer.byteLength('randomness'), 16, 12]);
 });
-test('random password generation requests exactly 18 bytes from Web Crypto', () => {
+test('random password generation uses Web Crypto and includes all four character classes', () => {
   const lengths = [];
   const instrumented = app({ prepare(context) {
     context.crypto = { subtle: webcrypto.subtle, getRandomValues(bytes) {
       lengths.push(bytes.length); return webcrypto.getRandomValues(bytes);
     } };
   } });
-  const password = instrumented.context.generatePassword();
-  assert.deepEqual(lengths, [18]); assert.match(password, /^[A-Za-z0-9_-]{24}$/);
+  for (let i=0;i<100;i++) {
+    const password = instrumented.context.generatePassword();
+    assert.match(password, /^[!-~]{32}$/);
+    for (const pattern of [/[a-z]/,/[A-Z]/,/[0-9]/,/[^A-Za-z0-9]/]) assert.match(password,pattern);
+  }
+  assert.ok(lengths.length >= 100); assert.ok(lengths.every(length=>length===64));
+});
+test('password sampling rejects out-of-range bytes and candidates missing a character class', () => {
+  let draws=0;
+  const a=app({prepare(context) {
+    context.crypto={subtle:webcrypto.subtle,getRandomValues(bytes) {
+      draws++;
+      // First reject an entire buffer; then reject an all-symbol candidate.
+      if(draws===1)return bytes.fill(255);
+      if(draws===2)return bytes.fill(0);
+      for(let i=0;i<bytes.length;i++)bytes[i]=[0,16,32,64][i%4];
+      return bytes;
+    }};
+  }});
+  assert.equal(a.context.generatePassword(),'!1Aa'.repeat(8));
+  assert.equal(draws,3);
+});
+test('password generation fails rather than falling back when Web Crypto fails', () => {
+  const a=app({prepare(context) {
+    context.crypto={subtle:webcrypto.subtle,getRandomValues(){throw new Error('RNG unavailable');}};
+  }});
+  assert.throws(()=>a.context.generatePassword(),/RNG unavailable/);
 });
 test('random nonce generation requests exactly 16 bytes from Web Crypto', () => {
   const lengths = [];
