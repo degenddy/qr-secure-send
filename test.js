@@ -400,7 +400,7 @@ describe('Payload format integration', () => {
 
   test('URL wrapping with GitHub Pages URL', async () => {
     const encrypted = await encryptSecret('via link', 'pass');
-    const url = 'https://degenddy.github.io/qr-secure-send/?v=2.3.0#QRSEC5:' + encrypted;
+    const url = 'https://degenddy.github.io/qr-secure-send/?v=2.4.0#QRSEC5:' + encrypted;
     const extracted = extractPayload(url);
     assert.equal(extracted.wallet, false);
     const decrypted = await decryptSecret(extracted.data, 'pass');

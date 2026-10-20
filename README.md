@@ -19,10 +19,10 @@ You can also open `index.html` directly. Camera and clipboard availability depen
 1. Enter a secret (multiline text is supported; textarea line endings use LF). **Conceal secret length** is checked by default: it pads to the next 128, 256, 512, 1024 or 1536-byte capacity. Uncheck it for an unpadded, smaller QR. You can leave the password blank for a direct camera transfer, enter your own password, or choose **Generate random password**. A password is recommended; save it before leaving the Send tab if you use one.
 2. Optionally connect your wallet. Wallet-only transfers work without a password. If both are set, both are needed to decrypt. Creation requests the same signature twice and rejects inconsistent or unsupported signatures.
 3. Generate the QR code. If you set a password, share it through a separate trusted channel. For wallet transfers, reveal and securely save the recovery key separately from the QR/link. It substitutes for the wallet; it does not bypass a password.
-4. In a trusted receiver copy, scan the QR code, enter the password if one was set, and click **Decrypt**. Scanning alone never requests a wallet signature.
+4. In a trusted receiver copy, scan the QR code or open its link. Transfers without password or wallet protection unlock automatically; otherwise enter the required credentials and click **Decrypt**. The secret stays hidden until you reveal or copy it. Scanning alone never requests a wallet signature.
 5. Confirm successful decryption on the receiving device before deleting the original secret. Then clear the page and clipboard. Wallet transfers can also be received using the saved recovery key instead of a wallet connection.
 
-Generated QR codes contain a link to the GitHub Pages app. **Deploy version 2.3 before distributing new QR links.** New transfers use version 5 (`QRSEC5` or `QRSECW5`). Version 2.3 still reads versions 1–4 with their original password derivation and signing messages. Older apps cannot read version 5. Existing transfers retain their original padding; re-encrypt to use the new sizing option.
+Generated QR codes contain a link to the GitHub Pages app. **Deploy version 2.4.0 before distributing links from this release.** New transfers still use version 5 (`QRSEC5` or `QRSECW5`), compatible with app version 2.3. Version 2.4 also reads versions 1–4 with their original password derivation and signing messages. Apps older than 2.3 cannot read version 5. Existing transfers retain their original padding; re-encrypt to use the new sizing option.
 
 ## Security controls
 
