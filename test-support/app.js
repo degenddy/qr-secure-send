@@ -69,6 +69,13 @@ function app({ hash = '', ethereum, confirm = () => false, masking = true, prepa
       if (monotonic) monotonicTime += ms;
     },
     run: code => vm.runInContext(code, context),
+    async waitForIdle() {
+      const deadline = Date.now() + 30000;
+      while (vm.runInContext('busy', context)) {
+        if (Date.now() > deadline) throw new Error('App did not finish its pending operation');
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    },
     click: id => elements.get(id).handlers.click(),
     el: id => elements.get(id),
   };

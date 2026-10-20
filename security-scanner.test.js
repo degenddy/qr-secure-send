@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { app } = require('./test-support/app');
+const { app, legacyFixture } = require('./test-support/app');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function deferred() { let resolve; const promise=new Promise(done=>{resolve=done;});return {promise,resolve}; }
 function camera() { const record={stops:0};record.stream={getTracks:()=>[{stop(){record.stops++;}}]};return record; }
@@ -90,4 +90,15 @@ test('scanning a wallet transfer never automatically requests a wallet signature
   let calls=0;a.context.window.ethereum={request:async()=>{calls++;}};
   await a.click('scan-btn');const [id,frame]=a.frames.entries().next().value;a.frames.delete(id);await frame();
   assert.equal(calls,0);assert.equal(a.el('decrypt-btn').style.display,'inline-block');assert.equal(c.stops,1);
+});
+test('scanning a passwordless transfer automatically decrypts but does not reveal or copy',async()=>{
+  const packet=legacyFixture('', 'DUMMY_SCANNED_SECRET'),c=camera();
+  const a=native({acquire:async()=>c.stream,detect:async()=>[{rawValue:'QRSEC:'+packet}]});
+  let copies=0;a.context.navigator.clipboard.writeText=async()=>{copies++;};
+  await a.click('scan-btn');
+  const [id,frame]=a.frames.entries().next().value;a.frames.delete(id);await frame();
+  assert.equal(a.el('recv-value').textContent,'DUMMY_SCANNED_SECRET');
+  assert.equal(a.el('recv-value').hidden,true);
+  assert.equal(a.el('decrypt-btn').style.display,'none');
+  assert.equal(copies,0);assert.equal(c.stops,1);
 });

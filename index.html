@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-31AfFkIivb4y0L1VEh5hC6BWHNjVBQ+lNB6WgPlH5wk='; style-src 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-JqAikhtVp+f04xAg6z3+ac5Ny6JKT48Ky6dFUsLoAGw='; style-src 'unsafe-inline'; img-src data:; media-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>QR Secure Send</title>
+  <link rel="icon" type="image/svg+xml" sizes="any" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%23b5f5ce%22%2F%3E%3Cg%20transform%3D%22translate%284%204%29%22%20fill%3D%22none%22%20stroke%3D%22%23183126%22%20stroke-width%3D%222%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22%2F%3E%3Crect%20x%3D%2215%22%20y%3D%223%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%2215%22%20width%3D%226%22%20height%3D%226%22%20rx%3D%221%22%2F%3E%3Cpath%20d%3D%22M15%2014h6v7h-6v-3h3M3%2012h9V3M12%2015v6%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
   <style>
     :root { color-scheme: dark; --bg:#0c1118; --surface:#141c26; --line:#2c3848; --text:#edf3f8; --muted:#a2b0c2; --accent:#b5f5ce; --amber:#f4c77d; }
     * { box-sizing:border-box; margin:0; padding:0; }
@@ -273,12 +274,14 @@
         <div class="form-section">
           <div class="section-heading"><span class="step" aria-hidden="true">01</span><h2>Receive a transfer</h2></div>
           <p class="info receive-intro">Scan a QR from the sending device, or open its transfer link in your trusted copy of this app.</p>
-          <label for="recv-passphrase">Decryption password</label>
-          <div class="input-wrap">
-            <input type="password" id="recv-passphrase" placeholder="Enter the sender’s password" autocomplete="one-time-code" spellcheck="false" autocorrect="off" autocapitalize="off" aria-describedby="receive-password-hint">
-            <button class="toggle-vis" data-target="recv-passphrase" aria-label="Show decryption password" aria-pressed="false">show</button>
+          <div id="recv-password-fields">
+            <label for="recv-passphrase">Decryption password</label>
+            <div class="input-wrap">
+              <input type="password" id="recv-passphrase" placeholder="Enter the sender’s password" autocomplete="one-time-code" spellcheck="false" autocorrect="off" autocapitalize="off" aria-describedby="receive-password-hint">
+              <button class="toggle-vis" data-target="recv-passphrase" aria-label="Show decryption password" aria-pressed="false">show</button>
+            </div>
+            <p class="input-hint" id="receive-password-hint">Transfers without a password or wallet unlock automatically. Your secret stays hidden until you reveal it.</p>
           </div>
-          <p class="input-hint" id="receive-password-hint">Leave this empty if the sender didn’t set a password.</p>
           <div id="recv-wallet-section" class="wallet-section option-box" style="display:none">
             <p class="info">This transfer uses wallet protection. Approve signing only in your trusted copy.</p>
             <button class="wallet-btn" id="recv-wallet-connect-btn">Connect MetaMask</button>
@@ -11806,6 +11809,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
   }
 
   function refreshReceiveControls() {
+    $('recv-password-fields').hidden = false;
     $('receive-preview-title').textContent = incomingPayload ? 'Ready to unlock.' : 'Bring your devices together.';
     $('receive-preview-hint').textContent = incomingPayload
       ? 'Your transfer is loaded. Enter its password if one was set, then choose Decrypt secret.'
@@ -11867,6 +11871,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       btn.setAttribute('aria-pressed', String(btn.dataset.tab === name));
     });
     document.querySelectorAll('.panel').forEach(panel => panel.classList.toggle('active', panel.id === name));
+    if (clear && name === 'receive') void decryptIncoming(true);
   }
 
   document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => selectTab(btn.dataset.tab)));
@@ -12040,10 +12045,12 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     } finally { if (sessionIsCurrent(epoch)) setBusy(false); }
   });
 
-  async function decryptIncoming() {
+  async function decryptIncoming(automatic = false) {
+    // Never request a wallet signature or use typed credentials automatically.
+    if (automatic && (!incomingPayload || incomingPayload.wallet)) return;
     if (expireSessionIfNeeded() || busy || !incomingPayload) return;
     const payload = incomingPayload;
-    const passphrase = $('recv-passphrase').value;
+    const passphrase = automatic ? '' : $('recv-passphrase').value;
     $('recv-error').textContent = '';
     $('recv-value').textContent = '';
     $('recv-result').style.display = 'none';
@@ -12052,6 +12059,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     if (payload.wallet && !recvWalletAccount && !recovery) { $('recv-error').textContent = payload.version >= 4 ? 'Connect the original wallet or enter its saved recovery key.' : 'Connect the original wallet first.'; return; }
     const epoch = sessionEpoch;
     setBusy(true);
+    if (automatic) $('link-notice').textContent = 'Checking whether this transfer needs a password…';
     try {
       const walletSig = payload.wallet ? (recovery ? signatureFromRecoveryKey(recovery, payload.nonce, payload.version) : await getWalletSignature(recvWalletAccount, payload.nonce, payload.version)) : null;
       if (!sessionIsCurrent(epoch)) return;
@@ -12059,16 +12067,24 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       if (!sessionIsCurrent(epoch)) return;
       $('recv-value').textContent = secret;
       $('recv-result').style.display = 'block';
+      $('decrypt-btn').style.display = 'none';
+      $('recv-password-fields').hidden = true;
       $('link-notice').textContent = 'Secret unlocked. Reveal or copy it, then clear your session when finished.';
       $('recv-passphrase').value = '';
       $('recv-recovery-key').value = '';
       armIdleTimer();
       bringResultIntoView($('recv-result'));
     } catch (_) {
-      if (sessionIsCurrent(epoch)) $('recv-error').textContent = 'Decryption failed. Check the password, wallet or recovery key, and transfer data.';
+      if (sessionIsCurrent(epoch)) {
+        if (automatic) {
+          $('link-notice').textContent = 'Enter the sender’s password to unlock this transfer. If none was set, the transfer may be damaged.';
+        } else {
+          $('recv-error').textContent = 'Decryption failed. Check the password, wallet or recovery key, and transfer data.';
+        }
+      }
     } finally { if (sessionIsCurrent(epoch)) setBusy(false); }
   }
-  $('decrypt-btn').addEventListener('click', decryptIncoming);
+  $('decrypt-btn').addEventListener('click', () => decryptIncoming());
 
   $('scan-btn').addEventListener('click', async () => {
     if (expireSessionIfNeeded() || busy) return;
@@ -12088,7 +12104,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
         QRScan.stop($('scanner-region'));
         setBusy(false);
         refreshReceiveControls();
-        // Scanning never starts a wallet signature request. Decrypt is a separate explicit action.
+        await decryptIncoming(true);
         return true;
       }, message => {
         if (sessionIsCurrent(epoch)) { $('recv-error').textContent = message; setBusy(false); refreshReceiveControls(); }
@@ -12162,6 +12178,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     refreshReceiveControls();
     selectTab('receive', false);
     armIdleTimer();
+    void decryptIncoming(true);
   });
   refreshReceiveControls();
   if (incomingPayload) selectTab('receive', false);
@@ -12176,6 +12193,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
   }
   else $('send-error').textContent = 'This browser cannot mask secret input. Use a browser that supports text masking.';
   document.body.hidden = false;
+  void decryptIncoming(true);
 
   </script>
 </body>

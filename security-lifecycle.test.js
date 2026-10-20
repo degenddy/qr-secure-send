@@ -6,6 +6,23 @@ const next = legacyFixture('next', 'NEXT_PLAINTEXT');
 function deferred() { let resolve, reject; const promise = new Promise((a, b) => {resolve=a;reject=b;}); return {promise,resolve,reject}; }
 
 for (const [name, cancel] of [
+  ['clear', a => a.click('clear-btn')],
+  ['tab switch', a => a.tabs[0].handlers.click()],
+  ['expiry', a => a.advance(120000)],
+]) test(`automatic decryption cannot restore plaintext after ${name}`, async () => {
+  const a=app(),job=deferred();let pending;
+  const original=a.context.decryptIncoming;
+  a.context.decryptIncoming=(...args)=>(pending=original(...args));
+  a.context.decryptSecret=()=>job.promise;
+  a.context.location.hash='#QRSEC:'+packet;a.windowEvents.hashchange();
+  assert.equal(a.run('busy'),true);
+  cancel(a);job.resolve('DUMMY_LATE_AUTO_SECRET');await pending;
+  assert.equal(a.el('recv-value').textContent,'');
+  assert.equal(a.el('recv-result').style.display,'none');
+  assert.equal(a.el('recv-value').hidden,true);
+});
+
+for (const [name, cancel] of [
   ['page navigation', a => a.windowEvents.pagehide()],
   ['browser freeze', a => a.documentEvents.freeze()],
   ['tab switch', a => a.tabs[1].handlers.click()],
@@ -25,8 +42,11 @@ for (const [name, cancel] of [
 });
 test('accepted replacement discards an already pending decryption result', async () => {
   const a = app({hash:'#QRSEC:'+packet,confirm:()=>true}), job=deferred();
+  await a.waitForIdle();
+  const originalDecrypt=a.context.decryptSecret;
   a.context.decryptSecret=()=>job.promise;
   const pending=a.click('decrypt-btn');
+  a.context.decryptSecret=originalDecrypt;
   a.context.location.hash='#QRSEC:'+next;a.windowEvents.hashchange();
   job.resolve('OLD_LATE_PLAINTEXT');await pending;
   assert.equal(a.el('recv-value').textContent,'');
@@ -34,6 +54,7 @@ test('accepted replacement discards an already pending decryption result', async
 });
 test('declined replacement lets the original pending decryption finish', async () => {
   const a = app({hash:'#QRSEC:'+packet,confirm:()=>false}), job=deferred();
+  await a.waitForIdle();
   a.context.decryptSecret=()=>job.promise;
   const pending=a.click('decrypt-btn');
   a.context.location.hash='#QRSEC:'+next;a.windowEvents.hashchange();
@@ -88,7 +109,7 @@ test('sender preserves leading and trailing secret whitespace',async()=>{
   a.el('secret').value=' \tsecret\n ';await a.click('generate-btn');assert.equal(received,' \tsecret\n ');
 });
 test('failed repeat decryption removes previously displayed plaintext',async()=>{
-  const a=app({hash:'#QRSEC:'+packet});a.el('recv-passphrase').value='old';await a.click('decrypt-btn');
+  const a=app({hash:'#QRSEC:'+packet});await a.waitForIdle();a.el('recv-passphrase').value='old';await a.click('decrypt-btn');
   await a.click('reveal-btn');a.el('recv-passphrase').value='incorrect';await a.click('decrypt-btn');
   assert.equal(a.el('recv-value').textContent,'');assert.equal(a.el('recv-result').style.display,'none');
   assert.match(a.el('recv-error').textContent,/Decryption failed/);

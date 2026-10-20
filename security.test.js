@@ -44,7 +44,7 @@ test('new UI permits passwordless transfers and warns about captured copies', as
   const link = sender.el('qr-url').textContent;
   assert.match(link, /#QRSEC5:/);
   const receiver = app({ hash: new URL(link).hash });
-  await receiver.click('decrypt-btn');
+  await receiver.waitForIdle();
   assert.equal(receiver.el('recv-value').textContent, 'immediate camera transfer');
 });
 
@@ -129,6 +129,7 @@ test('reset cancels a pending encryption result and clears all sensitive DOM val
 test('reset cancels a pending decryption result', async () => {
   const data = legacyFixture('legacy', 'must not return');
   const a = app({ hash: '#QRSEC:' + data });
+  await a.waitForIdle();
   a.el('recv-passphrase').value = 'legacy';
   const pending = a.click('decrypt-btn');
   await a.click('clear-btn');
@@ -140,6 +141,7 @@ test('reset cancels a pending decryption result', async () => {
 test('incoming URL clears history; decrypted secret is hidden until reveal', async () => {
   const data = legacyFixture('legacy', '<img src=x onerror=alert(1)>');
   const a = app({ hash: '#QRSEC:' + data });
+  await a.waitForIdle();
   assert.equal(a.context.location.hash, '');
   assert.equal(a.el('legacy-warning').style.display, 'block');
   a.el('recv-passphrase').value = 'legacy';
@@ -232,6 +234,7 @@ test('freeze, resume and history restoration clear expired or frozen sessions', 
 test('expired secrets cannot be revealed or copied before lifecycle events run', async () => {
   for (const action of ['copy-btn', 'reveal-btn']) {
     const a = app({ hash: '#QRSEC:' + legacyFixture('legacy', 'expired plaintext') });
+    await a.waitForIdle();
     a.el('recv-passphrase').value = 'legacy';
     await a.click('decrypt-btn');
     let copies = 0;
@@ -247,6 +250,7 @@ test('expired secrets cannot be revealed or copied before lifecycle events run',
 test('late encryption and decryption results enforce elapsed deadlines without timers', async () => {
   for (const action of ['generate-btn', 'decrypt-btn']) {
     const a = app({ hash: '#QRSEC:' + legacyFixture('legacy', 'late plaintext') });
+    await a.waitForIdle();
     a.el('secret').value = 'late secret';
     a.el('recv-passphrase').value = 'legacy';
     const pending = a.click(action);
@@ -361,6 +365,7 @@ test('rejecting an incoming transfer preserves the active transfer and secret', 
   let confirmations = 0;
   const a = app({ hash: '#QRSEC:' + legacyFixture('old', 'original secret'),
     confirm: () => { confirmations++; return false; } });
+  await a.waitForIdle();
   a.el('recv-passphrase').value = 'old';
   a.context.location.hash = '#QRSEC:' + legacyFixture('new', 'replacement secret');
   a.windowEvents.hashchange();

@@ -60,7 +60,7 @@ test('browser: declined replacement preserves input; accepted replacement decryp
   assert.equal(await page.locator('#secret').inputValue(), 'DUMMY_CURRENT_SECRET');
   page.once('dialog', dialog => dialog.accept());
   await page.evaluate(hash => {location.hash = hash;}, incoming);
-  await page.locator('#decrypt-btn').click(); await page.locator('#recv-result').waitFor();
+  await page.locator('#recv-result').waitFor();
   assert.equal(await page.locator('#secret').inputValue(), '');
   assert.equal(await page.locator('#recv-value').textContent(), 'DUMMY_INCOMING_SECRET');
   assert.equal(await page.locator('#recv-value').isVisible(), false);
@@ -69,11 +69,62 @@ test('browser: declined replacement preserves input; accepted replacement decryp
 test('browser: HTML-looking plaintext stays inert after decryption and reveal', async () => {
   const secret = '<img src=x onerror="window.secretExecuted=true">';
   await page.goto(base + '#QRSEC:' + legacyFixture('', secret));
-  await page.locator('#decrypt-btn').click(); await page.locator('#recv-result').waitFor();
+  await page.locator('#recv-result').waitFor();
   await page.locator('#reveal-btn').click();
   assert.equal(await page.locator('#recv-value').textContent(), secret);
   assert.equal(await page.locator('#recv-value img').count(), 0);
   assert.equal(await page.evaluate(() => window.secretExecuted), undefined);
+});
+
+for (const concealLength of [true, false]) {
+  test(`browser: v5 passwordless transfer automatically unlocks hidden (padding ${concealLength})`, async () => {
+    await page.addInitScript(() => {
+      window.secretCopies=0;
+      navigator.clipboard.writeText=async()=>{window.secretCopies++;};
+    });
+    await page.goto(base);
+    const packet=await page.evaluate(padding=>encryptSecret('DUMMY_AUTO_SECRET','',5,padding),concealLength);
+    await page.goto(base+'#QRSEC5:'+packet);
+    await page.locator('#recv-result').waitFor();
+    assert.equal(await page.locator('#recv-value').textContent(),'DUMMY_AUTO_SECRET');
+    assert.equal(await page.locator('#recv-value').isVisible(),false);
+    assert.equal(await page.locator('#decrypt-btn').isVisible(),false);
+    assert.equal(await page.locator('#recv-passphrase').isVisible(),false);
+    assert.equal(await page.evaluate(()=>window.secretCopies),0);
+    await page.locator('#reveal-btn').click();
+    assert.equal(await page.locator('#recv-value').isVisible(),true);
+    await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
+    assert.equal(await page.locator('#recv-value').isVisible(),false);
+    await page.locator('#clear-btn').click();
+    assert.equal(await page.locator('#recv-value').textContent(),'');
+  });
+}
+
+test('browser: automatic attempt asks for a password without reporting a false failure', async () => {
+  await page.goto(base+'#QRSEC:'+legacyFixture('DUMMY_PASSWORD','DUMMY_PROTECTED_SECRET'));
+  await page.waitForFunction(()=>document.getElementById('link-notice').textContent.startsWith('Enter the sender'));
+  assert.equal(await page.locator('#recv-error').textContent(),'');
+  assert.equal(await page.locator('#recv-result').isVisible(),false);
+  assert.equal(await page.locator('#recv-value').textContent(),'');
+  await page.locator('#recv-passphrase').fill('WRONG_PASSWORD');
+  await page.locator('#decrypt-btn').click();
+  await page.waitForFunction(()=>document.getElementById('recv-error').textContent.startsWith('Decryption failed'));
+  await page.locator('#recv-passphrase').fill('DUMMY_PASSWORD');
+  await page.locator('#decrypt-btn').click();await page.locator('#recv-result').waitFor();
+  assert.equal(await page.locator('#recv-value').textContent(),'DUMMY_PROTECTED_SECRET');
+  assert.equal(await page.locator('#recv-value').isVisible(),false);
+});
+
+test('browser: wallet transfer arrival never calls the wallet or decrypts automatically', async () => {
+  await page.addInitScript(()=>{
+    window.walletRequests=0;
+    window.ethereum={request:async()=>{window.walletRequests++;throw new Error('Unexpected wallet request');}};
+  });
+  await page.goto(base+'#QRSECW3:'+'ab'.repeat(16)+':'+legacyFixture('', 'DUMMY_WALLET_PACKET'));
+  assert.equal(await page.locator('#recv-wallet-section').isVisible(),true);
+  assert.equal(await page.locator('#decrypt-btn').isEnabled(),true);
+  assert.equal(await page.locator('#recv-result').isVisible(),false);
+  assert.equal(await page.evaluate(()=>window.walletRequests),0);
 });
 
 test('browser: CSP blocks unapproved inline and remote code', async () => {
